@@ -79,7 +79,7 @@ static constexpr uint16_t MOTOR_MAGNET_COUNT = 14;
 
 static constexpr float RPM_PID_KP = 0.002f;
 static constexpr float RPM_PID_KI = 0.0005f;
-static constexpr float RPM_PID_KD = 0f;
+static constexpr float RPM_PID_KD = 0.0f;
 static constexpr float RPM_PID_INTEGRAL_LIMIT = 100000.0f;
 
 // --------- Solenoid Settings ---------
