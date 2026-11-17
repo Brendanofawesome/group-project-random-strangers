@@ -8,12 +8,40 @@ from I2C_Driver.I2C_Handler import (
 )
 
 from I2C_Driver.I2C_Devices.Jetson_Flywheel_Controller_Driver import (
-    JetsonFlywheelControllerDriver
+    FlywheelControllerDriver
 )
 
-from I2C_Driver.Jetson_Gimbal_Controller_Driver import (
-    get_coords
-)
+#IF CAMERA IS OFFSET FROM TURRET, NEW MATH NEEDS TO BE DONE!!!!!!!
+def get_coords(x, y, z) : #probably don't touch this 
+
+    #recieves inctercpt coords from projectileMotion
+
+    print("recieved: ")
+    print(f"x={x:.3f}, y={y:.3f}, z={z:.3f}")
+
+    yawRadians = math.atan2(
+        x,
+        -z
+    )
+
+    horizontalDistance = math.sqrt( 
+        x**2 + z**2
+    )
+
+    pitchRadians = math.atan2( #find radians w/ y coord
+        y,
+        horizontalDistance
+    )
+
+    yawDegrees = math.degrees( #convert to degrees 
+        yawRadians
+    )
+
+    pitchDegrees = math.degrees(
+        pitchRadians
+    )
+
+    return yawDegrees, pitchDegrees
 
 FLYWHEEL_I2C_ADDRESS = 0x62
 
@@ -32,7 +60,7 @@ i2cHandler.register_device(
 
 i2cHandler.startDriverThread()
 
-flywheelDriver = JetsonFlywheelControllerDriver(
+flywheelDriver = FlywheelControllerDriver(
     i2cHandler,
     FLYWHEEL_I2C_ADDRESS
 )
@@ -55,7 +83,7 @@ def gimbalTARGET (
 
 fired = False
 
-def fire(flywheelDriver):
+def fire(flywheelDriver: FlywheelControllerDriver):
     global fired
 
     if fired:

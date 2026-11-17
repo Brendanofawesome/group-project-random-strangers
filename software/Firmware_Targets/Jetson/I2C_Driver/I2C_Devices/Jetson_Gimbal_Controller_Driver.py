@@ -1,0 +1,80 @@
+#file to get coords and turn them into angles, and send them to I2C controller/Gimbal
+from struct import pack, unpack
+from ..I2C_Handler import I2CTransaction, Jetson_I2C_Handler, I2CResult
+from address_map_grabber import address_map_grabber
+
+gimbalControllerRegisterMap = address_map_grabber("../../../Gimbal_Controller/config.h")
+
+class GimbalControllerDriver:
+    def __init__(self, I2C_Handler: Jetson_I2C_Handler, YAW_ADDRESS: int, PITCH_ADDRESS: int):
+        self._I2C_Handler = I2C_Handler
+        I2C_Handler.register_device("Yaw Controller", YAW_ADDRESS, False)
+        I2C_Handler.register_device("Pitch Controller", PITCH_ADDRESS, False)
+        
+        self._Yaw_I2C_Address = YAW_ADDRESS
+        self._Pitch_I2C_Address = PITCH_ADDRESS
+        
+    def YAW_Ready(self) -> I2CResult[bool]:
+        """Checks if the YAW controller is ready
+        
+        Returns:
+            I2CResult[bool]: True if the YAW controller is ready
+        """
+        
+        def decode_ready_bit(data: bytes) -> bool:
+            """Decodes the ready bit"""
+            return data[0] == 1
+        
+        transaction = I2CTransaction(
+            deviceAddress=self._Yaw_I2C_Address,
+            registerAddress=gimbalControllerRegisterMap["READY"],
+            readCount=1
+        )
+        
+        self._I2C_Handler.submitTransaction(transaction)
+        return I2CResult(transaction, decode_ready_bit)
+    
+    def PITCH_Ready(self) -> I2CResult[bool]:
+        """Checks if the PITCH controller is ready
+        
+        Returns:
+            I2CResult[bool]: True if the PITCH controller is ready
+        """
+        
+        def decode_ready_bit(data: bytes) -> bool:
+            """Decodes the ready bit"""
+            return data[0] == 1
+        
+        transaction = I2CTransaction(
+            deviceAddress=self._Pitch_I2C_Address,
+            registerAddress=gimbalControllerRegisterMap["READY"],
+            readCount=1
+        )
+        
+        self._I2C_Handler.submitTransaction(transaction)
+        return I2CResult(transaction, decode_ready_bit)
+    
+    def set_target_angles(self, yaw: float, pitch: float) -> tuple[I2CResult[None], I2CResult[None]]:
+        """Sets the target angles of the pitch and yaw axis
+        
+        Returns: a tuple containting (yaw result, pitch result)
+        """
+        
+        pitch_transaction = I2CTransaction(
+            deviceAddress=self._Pitch_I2C_Address,
+            registerAddress=gimbalControllerRegisterMap["TARGET_ANGLE"],
+            writeData=pack("<f", pitch),
+            readCount=0,
+        )
+        
+        yaw_transaction = I2CTransaction(
+            deviceAddress=self._Yaw_I2C_Address,
+            registerAddress=gimbalControllerRegisterMap["TARGET_ANGLE"],
+            writeData=pack("<f", yaw),
+            readCount=0,
+        )
+        
+        self._I2C_Handler.submitTransaction(pitch_transaction)
+        self._I2C_Handler.submitTransaction(yaw_transaction)
+        
+        return (I2CResult(yaw_transaction), I2CResult(pitch_transaction))

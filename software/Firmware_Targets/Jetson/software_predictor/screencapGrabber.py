@@ -20,7 +20,7 @@ sys.path.append(
     str(JETSON_DIR)
 )
 
-from I2C_Driver.Jetson_Gimbal_Controller_Driver import get_coords
+from BANG import get_coords
 
 trackingStatus = { 
     "current": None, 
@@ -599,7 +599,7 @@ def generate_frames():
                     (det["x2"], det["y2"]),
                     (0, 255, 0),
                     2
-    )
+                )
 
                 cv2.putText(
                     frame,
@@ -609,7 +609,7 @@ def generate_frames():
                     0.6,
                     (0, 255, 0),
                     2
-    )
+                )
 
                 u = int(
                     (
@@ -662,7 +662,7 @@ def generate_frames():
                         "x": float(point[0]),
                         "y": float(point[1]),
                         "z": float(point[2])
-                     }
+                    }
 
                     print(
                         f"FINAL INTERCEPT XYZ=("
@@ -683,7 +683,7 @@ def generate_frames():
                         pitchDegrees
                     ):
                         BANG.fire()
-               
+
             # Encode current frame for browser streaming
             success, buffer = cv2.imencode(
                 ".jpg",

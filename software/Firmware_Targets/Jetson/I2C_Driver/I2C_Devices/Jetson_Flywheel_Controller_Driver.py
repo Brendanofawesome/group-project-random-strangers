@@ -8,7 +8,7 @@ from address_map_grabber import address_map_grabber
 # get the register map from the launch controller config file
 flywheelControllerRegisterMap = address_map_grabber("../../../Launch_Controller/config.h")
 
-class JetsonFlywheelControllerDriver:
+class FlywheelControllerDriver:
     def __init__(self, I2C_Handler: Jetson_I2C_Handler, I2C_Address: int):
         self._I2C_Address = I2C_Address
         self._I2C_Handler = I2C_Handler
