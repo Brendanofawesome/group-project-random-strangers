@@ -4,7 +4,7 @@ from .Jetson_Gimbal_Controller_Driver import GimbalControllerDriver
 from .Jetson_Flywheel_Controller_Driver import FlywheelControllerDriver
 from ..I2C_Handler import Jetson_I2C_Handler
 
-i2c_handler = Jetson_I2C_Handler(1, False)
+i2c_handler = Jetson_I2C_Handler(1)
 
 gimbal_driver = GimbalControllerDriver(i2c_handler,0x54,0x55)
 flywheel_driver = FlywheelControllerDriver(i2c_handler,0x62)
@@ -23,8 +23,8 @@ assert flywheel_driver.flywheelsArmed().result(timeout=10), "flywheels timed out
 
 flywheel_driver.setFlywheelRPMTarget(30)
 assert flywheel_driver.flywheelRPMTarget().result() == 30
-print("Left flywheel speed = " + flywheel_driver.leftActualFlywheelRPM().result())
-print("Right flywheel speed = " + flywheel_driver.rightActualFlywheelRPM().result())
+print("Left flywheel speed = " + str(flywheel_driver.leftActualFlywheelRPM().result()))
+print("Right flywheel speed = " + str(flywheel_driver.rightActualFlywheelRPM().result()))
 flywheel_driver.setFlywheelRPMTarget(0)
 assert flywheel_driver.flywheelRPMTarget().result() == 0
 flywheel_driver.disarmFlywheels()
