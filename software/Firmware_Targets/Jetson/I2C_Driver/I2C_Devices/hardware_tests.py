@@ -13,7 +13,10 @@ flywheel_driver = FlywheelControllerDriver(i2c_handler,0x62)
 assert gimbal_driver.PITCH_Ready().result(timeout=10), "Pitch timed out"
 assert gimbal_driver.YAW_Ready().result(timeout=10), "Yaw timed out"
 gimbal_driver.set_target_angles(0,0)
-gimbal_driver.set_target_angles(math.pi/4, math.pi/4)
+gimbal_driver.set_target_angles(0.5, 0.6)
+assert gimbal_driver.read_target_pitch().result() == 0.6
+assert gimbal_driver.read_target_yaw().result() == 0.5
+
 
 
 flywheel_driver.armFlywheels()

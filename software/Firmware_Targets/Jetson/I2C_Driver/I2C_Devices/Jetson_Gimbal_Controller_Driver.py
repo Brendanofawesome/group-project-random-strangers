@@ -78,3 +78,45 @@ class GimbalControllerDriver:
         self._I2C_Handler.submitTransaction(yaw_transaction)
         
         return (I2CResult(yaw_transaction), I2CResult(pitch_transaction))
+
+    def read_target_pitch(self) -> I2CResult[float]:
+        """Reads the target angle of pitch
+        
+        Returns:
+            I2CResult[float]: The target pitch
+        """
+
+
+        def decode_data(data: bytes) -> float:
+            """Decodes the data from controller's response"""
+            return unpack("<f", data)[0]
+
+        pitch_transaction = I2CTransaction(
+            deviceAddress=self._Pitch_I2C_Address,
+            registerAddress=gimbalControllerRegisterMap["TARGET_ANGLE"],
+            readCount=4
+        )
+
+        self._I2C_Handler.submitTransaction(pitch_transaction)
+        return I2CResult(pitch_transaction, decode_data)
+
+    def read_target_yaw(self) -> I2CResult[float]:
+            """Reads the target angle of yaw
+            
+            Returns:
+                I2CResult[float]: The target yaw
+            """
+    
+    
+            def decode_data(data: bytes) -> float:
+                """Decodes the data from controller's response"""
+                return unpack("<f", data)[0]
+    
+            pitch_transaction = I2CTransaction(
+                deviceAddress=self._Yaw_I2C_Address,
+                registerAddress=gimbalControllerRegisterMap["TARGET_ANGLE"],
+                readCount=4
+            )
+    
+            self._I2C_Handler.submitTransaction(pitch_transaction)
+            return I2CResult(pitch_transaction, decode_data)
