@@ -151,7 +151,7 @@ class Jetson_I2C_Handler:
 
         with self.dataLock:
             if(self.runThread.is_alive()):
-                logger.debug(f"Starting I2C Driver Runner Thread on BusID:{self._i2c_bus_id} error checking {"enabled" if self.doErrorChecking else "disabled"}")
+                logger.debug(f"Starting I2C Driver Runner Thread on BusID:{self._i2c_bus_id} error checking {'enabled' if self.doErrorChecking else 'disabled'}")
                 self.runThread.start()
             else:
                 logger.warning(f"Attempted to start I2C Driver Runner Thread on BusID:{self._i2c_bus_id} but it is already running")

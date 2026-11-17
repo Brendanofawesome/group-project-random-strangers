@@ -1,8 +1,8 @@
 from queue import Queue
 import math
-from Jetson_Gimbal_Controller_Driver import GimbalControllerDriver
-from Jetson_Flywheel_Controller_Driver import FlywheelControllerDriver
-from I2C_Handler import Jetson_I2C_Handler
+from .Jetson_Gimbal_Controller_Driver import GimbalControllerDriver
+from .Jetson_Flywheel_Controller_Driver import FlywheelControllerDriver
+from ..I2C_Handler import Jetson_I2C_Handler
 
 q = Queue(maxsize=0)
 i2c_handler = Jetson_I2C_Handler(1, q, False)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from struct import pack, unpack
 
 from ..I2C_Handler import I2CTransaction, Jetson_I2C_Handler, I2CResult
-from address_map_grabber import address_map_grabber
+from .address_map_grabber import address_map_grabber
 
 # get the register map from the launch controller config file
 flywheelControllerRegisterMap = address_map_grabber("../../../Launch_Controller/config.h")

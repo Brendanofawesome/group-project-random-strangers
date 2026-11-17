@@ -1,7 +1,7 @@
 #file to get coords and turn them into angles, and send them to I2C controller/Gimbal
 from struct import pack, unpack
 from ..I2C_Handler import I2CTransaction, Jetson_I2C_Handler, I2CResult
-from address_map_grabber import address_map_grabber
+from .address_map_grabber import address_map_grabber
 
 gimbalControllerRegisterMap = address_map_grabber("../../../Gimbal_Controller/config.h")
 
