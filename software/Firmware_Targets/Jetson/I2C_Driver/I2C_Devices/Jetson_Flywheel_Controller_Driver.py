@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from queue import Queue
 from struct import pack, unpack
 
 from ..I2C_Handler import I2CTransaction, Jetson_I2C_Handler, I2CResult
@@ -13,6 +12,7 @@ class JetsonFlywheelControllerDriver:
     def __init__(self, I2C_Handler: Jetson_I2C_Handler, I2C_Address: int):
         self._I2C_Address = I2C_Address
         self._I2C_Handler = I2C_Handler
+        I2C_Handler.register_device("Launch Controller", I2C_Address, False)
         
     def ready(self) -> I2CResult[bool]:
         """Checks if the flywheel controller is ready to receive commands
