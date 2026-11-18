@@ -1,10 +1,14 @@
 #include <Arduino.h>
+#include <SimpleFOC.h>
 #include <math.h>
+#include <string.h>
 
 #include "config.h"
 #include "I2C_Driver.h"
-#include "hall_sensor.h"
 #include "motor_control.h"
+
+#include "analog_hall_sensor.h"
+#include "MT6816.h"
 // Gimbal Controller main program
 // Two main functions: setup() and loop()
 // setup() is called once when ESP32 starts 
@@ -15,38 +19,70 @@ constexpr uint8_t STATUS_NOT_READY = 0;
 constexpr uint8_t STATUS_READY = 1;
 constexpr uint8_t STATUS_SENSOR_ERROR = 2;
 
+static analog_hall_sensor analog_sensor;
+static MT6816 magnetic_encoder(HALL_SENSOR_CS_PIN);
+static Sensor* selected_sensor = IS_PITCH ? static_cast<Sensor*>(&magnetic_encoder) : static_cast<Sensor*>(&analog_sensor);
+
+static float last_target_angle = 0.0f;
+
 //Called once when the ESP32 starts up
 void setup() {
 
-    // Start serial communication for debugging
-    Serial.begin(115200);
+    if(DEBUG){
+        // Start serial communication for debugging
+        Serial.begin(115200);
+        if (TARGET == Axis::Pitch) {
+            Serial.println("Starting Gimbal ESP32 (PITCH)...");
+        } else if (TARGET == Axis::Yaw) {
+            Serial.println("Starting Gimbal ESP32 (YAW)...");
+        } else {
+            Serial.println("Starting Gimbal ESP32 (UNKNOWN TARGET)...");
+        }
+    }
 
-    Serial.println("Starting Gimbal ESP32...");
+    //initialize the selected sensor
+    if (!IS_PITCH) {
+        analog_sensor.init(); //yaw uses analog
+    } else {
+        SPI.begin(HALL_SENSOR_CLK_PIN, HALL_SENSOR_MISO_PIN, HALL_SENSOR_MOSI_PIN, HALL_SENSOR_CS_PIN);
+        magnetic_encoder.init(&SPI);
+    }
 
-    // Initialize I2C communication
-    if (!initialize_i2c()) {
-        Serial.println("I2C initialization failed!");
-
-        // Stop here because communication failed
+    // Initialize motor control
+    if(!initializeMotorControl(selected_sensor)) {
+        // Stop here because motor control initialization failed
         while (true) {
+            if(DEBUG) Serial.println("Motor control initialization failed!");
             delay(1000);
         }
     }
 
-    Serial.println("I2C initialized successfully!");
+    // Initialize I2C communication
+    if (!initialize_i2c()) {
+        // Stop here because communication failed
+        while (true) {
+            if(DEBUG) Serial.println("I2C initialization failed!");
+            delay(1000);
+        }
+    }
 
-    // Set status to ready for the communication test
-    setStatus(STATUS_READY);
+    if(DEBUG) Serial.println("I2C initialized successfully!");
+
+    // Set status to ready
+    setReady(true);
 }
 void loop() {
+    // Update the motor control system
+    updateMotorControl();
 
-    // Simulated angle measurement in radians
-    // Replace with Hall sensor reading later
-    float currentAngle = 0.785f;
+    // Update the target angle
+    float new_target_angle = getI2CTargetAngle();
+    if(std::isfinite(new_target_angle) && new_target_angle != last_target_angle) {
+        if(DEBUG) Serial.printf("New target angle: %.4f radians\n", new_target_angle);
+        last_target_angle = new_target_angle;
+        setMotorTargetAngle(last_target_angle);
+    }
 
     // Update CURRENT_ANGLE register
-    setCurrentAngle(currentAngle);
-
-    // Delay for communication bench testing
-    delay(10);
+    setI2CCurrentAngle(getMotorCurrentAngle());
 }
