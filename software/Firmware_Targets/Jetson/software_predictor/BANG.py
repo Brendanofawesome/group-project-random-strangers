@@ -1,6 +1,13 @@
 import math
 from queue import Queue
 
+import sys
+from pathlib import Path
+
+JETSON_DIR = Path(__file__).resolve().parent.parent
+
+sys.path.insert(0, str(JETSON_DIR))
+
 from I2C_Driver.I2C_Handler import (
     I2CTransaction,
     Jetson_I2C_Handler,
@@ -11,7 +18,6 @@ from I2C_Driver.I2C_Devices.Jetson_Flywheel_Controller_Driver import (
     FlywheelControllerDriver
 )
 
-#IF CAMERA IS OFFSET FROM TURRET, NEW MATH NEEDS TO BE DONE!!!!!!!
 def get_coords(x, y, z) : #probably don't touch this 
 
     #recieves inctercpt coords from projectileMotion
