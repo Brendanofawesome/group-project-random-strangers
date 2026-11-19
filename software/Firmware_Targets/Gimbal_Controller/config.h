@@ -29,10 +29,10 @@ constexpr bool IS_PITCH = TARGET == Axis::Pitch;
 #define ENABLE_PIN 7
 
 // SPI Hall Sensor Configuration (PITCH)
-#define HALL_SENSOR_CS_PIN 5
-#define HALL_SENSOR_CLK_PIN 20
-#define HALL_SENSOR_MISO_PIN 22
-#define HALL_SENSOR_MOSI_PIN 23
+#define HALL_SENSOR_CS_PIN 4
+#define HALL_SENSOR_CLK_PIN 0
+#define HALL_SENSOR_MISO_PIN 1
+#define HALL_SENSOR_MOSI_PIN 3
 
 //Analog Hall Sensor Configuration (YAW)
 #define SENSOR_A_PIN 4
