@@ -1,6 +1,18 @@
 import sys
-
 from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+PREDICTOR_DIR = (
+    PROJECT_ROOT
+    / "software"
+    / "Firmware_Targets"
+    / "Jetson"
+    / "software_predictor"
+)
+
+sys.path.insert(0, str(PREDICTOR_DIR))
+
 from flask import (
     Flask,
     Response,
