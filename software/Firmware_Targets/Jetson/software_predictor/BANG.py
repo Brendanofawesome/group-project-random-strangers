@@ -4,6 +4,8 @@ from queue import Queue
 import sys
 from pathlib import Path
 
+TESTMODE = True #for testing the pipeline w/o physical camera inputs. 
+
 JETSON_DIR = Path(__file__).resolve().parent.parent
 
 sys.path.insert(0, str(JETSON_DIR))
@@ -77,10 +79,13 @@ angleTolerance = math.radians(1.0)
 def gimbalTARGET ( 
     targetYaw, 
     targetPitch, 
-    currentYaw, 
-    currentPitch
+    currentYaw = None,
+    currentPitch = None
 ): 
 
+    if TESTMODE: 
+        currentYaw = targetYaw
+        currentPitch = targetPitch
     return (
         abs(targetYaw - currentYaw) <= angleTolerance
         and 
