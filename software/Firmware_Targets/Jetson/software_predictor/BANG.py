@@ -84,6 +84,7 @@ def gimbalTARGET (
 ): 
 
     if TESTMODE: 
+        print("[TEST] Simulating gimbal at target")
         currentYaw = targetYaw
         currentPitch = targetPitch
     return (
