@@ -683,7 +683,7 @@ def generate_frames():
                     )
 
 
-                    if (not has_fired and BANG.gimbalCurrent)( #FIRE THE GUN!!
+                    if (not has_fired)( #FIRE THE GUN!!
                         yawDegrees,
                         pitchDegrees
                     ):
