@@ -100,7 +100,7 @@ def fire(): #flywheelDriver import here prveiously
     if fired:
         return False
 
-    flywheelDriver.fireSolenoid().result()
+    flywheelDriver.fireSolenoid()
     print("[LAUNCHER] FIRE command sent")
 
     fired = True
