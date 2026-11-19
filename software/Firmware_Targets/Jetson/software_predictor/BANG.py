@@ -24,8 +24,8 @@ def get_coords(x, y, z) : #probably don't touch this
 
     #recieves inctercpt coords from projectileMotion
 
-    print("recieved: ")
-    print(f"x={x:.3f}, y={y:.3f}, z={z:.3f}")
+  #  print("recieved: ")
+    #print(f"x={x:.3f}, y={y:.3f}, z={z:.3f}")
 
     yawRadians = math.atan2(
         x,
@@ -84,7 +84,7 @@ def gimbalTARGET (
 ): 
 
     if TESTMODE: 
-        print("[TEST] Simulating gimbal at target")
+    #    print("[TEST] Simulating gimbal at target")
         currentYaw = targetYaw
         currentPitch = targetPitch
     return (

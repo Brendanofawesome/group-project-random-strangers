@@ -532,7 +532,7 @@ print("ZED running")
 
 #did a lot of code replacing here to get the ZED camera feed to appear on the webpage /frontend/webpge.py.
 def generate_frames():
-    has_fired = False
+    targetLogged = False
     try:
 
         while True:
@@ -651,6 +651,8 @@ def generate_frames():
                     y,
                     z
                 )
+                if intercept is not None:
+                    print("[INTERCEPT] Target acquired")
                 x, y, z = calibration.camera_to_turret(
                         x,
                          y,
@@ -671,18 +673,24 @@ def generate_frames():
                         "z": float(point[2])
                     }
 
-                    print(
-                        f"FINAL INTERCEPT XYZ=("
-                        f"{point[0]:.3f}, "
-                        f"{point[1]:.3f}, "
-                        f"{point[2]:.3f}) m"
-                    )
+         #           print(
+         #               f"FINAL INTERCEPT XYZ=("
+         #               f"{point[0]:.3f}, "
+         #               f"{point[1]:.3f}, "
+         #               f"{point[2]:.3f}) m"
+         #           )
 
                     yawDegrees, pitchDegrees = get_coords( #GETS CURRENT ANGLE ! ONCE LOCATION IS REACHED
                         point[0],
                         point[1],
                         point[2]
                     )
+                    if not (targetLogged):
+                        print(
+                            f"[GIMBAL] yaw={yawDegrees:.2f} "
+                            f"pitch={pitchDegrees:.2f}"
+    ) 
+                        
 
                   #  currentYaw = yawDriver.currentAngle().result()
                   #  currentPitch = pitchDriver.currentAngle().result()
@@ -694,6 +702,10 @@ def generate_frames():
                         #currentYaw,
                        # currentPitch
                     ):
+
+                        if not (targetLogged):
+                            print("[GIMBAL] Target reached")
+                        targetLogged = True
                         BANG.fire()
 
             # Encode current frame for browser streaming
