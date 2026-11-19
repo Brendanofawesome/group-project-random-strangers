@@ -539,8 +539,10 @@ def generate_frames():
 
             if (
                 zed.grab(runtime_params)
+                
                 != sl.ERROR_CODE.SUCCESS
             ):
+                print("[ZED] grab ok")
                 continue
 
             timestamp = zed.get_timestamp(
