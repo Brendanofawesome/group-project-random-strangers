@@ -8,10 +8,12 @@ import numpy
 CameraOffset = numpy.array ([ #these values need changing. 
 
     -0.10, #x
-    -5 #y
+    -5, #y
     -16  #z
 
-])
+], dtype=numpy.float64)
+
+
 def straightenUp (x , y , z , yawDegrees, pitchDegrees):  #zeroes out all coords, will call this at startup of launcher
 
     yaw = math.radians(-yawDegrees)

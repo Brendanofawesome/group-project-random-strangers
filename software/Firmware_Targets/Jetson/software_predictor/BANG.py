@@ -100,3 +100,6 @@ def fire(flywheelDriver: FlywheelControllerDriver):
     fired = True
     return True
 
+def reset ():
+    global fired
+    fired=False
