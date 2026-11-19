@@ -651,7 +651,7 @@ def generate_frames():
                     y,
                     z
                 )
-                if intercept is not None:
+                if intercept is not None & targetLogged:
                     print("[INTERCEPT] Target acquired")
                 x, y, z = calibration.camera_to_turret(
                         x,
