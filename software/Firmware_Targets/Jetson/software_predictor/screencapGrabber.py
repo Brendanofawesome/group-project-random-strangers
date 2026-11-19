@@ -5,6 +5,7 @@ import tensorrt as trt
 import pycuda.driver as imgoinginsane
 import pyzed.sl as sl
 import BANG as BANG
+import calibration
 
 
 import sys
@@ -648,7 +649,11 @@ def generate_frames():
                     y,
                     z
                 )
-
+                x, y, z = calibration.camera_to_turret(
+                        x,
+                         y,
+                         z
+)
                 print(
                     f"conf={det['confidence']:.2f} "
                     f"XYZ=({x:.3f}, {y:.3f}, {z:.3f}) m"

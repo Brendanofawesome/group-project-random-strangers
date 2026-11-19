@@ -7,8 +7,8 @@ PROCESSING_LATENCY = 0.039       # current measured pipeline delay
 
 
 LAUNCHER_POSITION = numpy.array([
-    0.400,
-    0.351,
+    0.0,
+    0.0,
     0.0
 ], dtype=numpy.float64)
 
