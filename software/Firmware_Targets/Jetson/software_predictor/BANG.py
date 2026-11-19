@@ -94,7 +94,7 @@ def gimbalTARGET (
 
 fired = False
 
-def fire(flywheelDriver: FlywheelControllerDriver):
+def fire(): #flywheelDriver import here prveiously
     global fired
 
     if fired:
