@@ -96,6 +96,7 @@ def fire(flywheelDriver: FlywheelControllerDriver):
         return False
 
     flywheelDriver.fireSolenoid().result()
+    print("[LAUNCHER] FIRE command sent")
 
     fired = True
     return True
@@ -103,3 +104,4 @@ def fire(flywheelDriver: FlywheelControllerDriver):
 def reset ():
     global fired
     fired=False
+    print("[LAUNCHER] Fire state reset")

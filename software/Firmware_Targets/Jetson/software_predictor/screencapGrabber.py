@@ -682,10 +682,15 @@ def generate_frames():
                         point[2]
                     )
 
+                  #  currentYaw = yawDriver.currentAngle().result()
+                  #  currentPitch = pitchDriver.currentAngle().result()
 
-                    if (not has_fired)( #FIRE THE GUN!!
+
+                    if (BANG.gimbalTARGET)( #FIRE THE GUN!!
                         yawDegrees,
-                        pitchDegrees
+                        pitchDegrees,
+                        #currentYaw,
+                       # currentPitch
                     ):
                         BANG.fire()
 
