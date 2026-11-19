@@ -466,16 +466,16 @@ def updateProjectilePhysics(t, x, y, z):
     vy = state[4]
     vz = state[5]
 
-    print(
-        f"Filtered XYZ=("
-        f"{filteredX:.3f}, "
-        f"{filteredY:.3f}, "
-        f"{filteredZ:.3f}) "
-        f"velocity=("
-        f"{vx:.3f}, "
-        f"{vy:.3f}, "
-        f"{vz:.3f}) m/s"
-    )
+ #  print(
+  #     f"Filtered XYZ=("
+  #      f"{filteredX:.3f}, "
+  #      f"{filteredY:.3f}, "
+  #      f"{filteredZ:.3f}) "
+  #      f"velocity=("
+ #       f"{vx:.3f}, "
+ #       f"{vy:.3f}, "
+  #      f"{vz:.3f}) m/s"
+ #   )
 
     intercept = ballfilter.getFinalIntercept()
     #get_coords(intercept)
@@ -656,10 +656,10 @@ def generate_frames():
                          y,
                          z
 )
-                print(
-                    f"conf={det['confidence']:.2f} "
-                    f"XYZ=({x:.3f}, {y:.3f}, {z:.3f}) m"
-                )
+      #          print(
+      #              f"conf={det['confidence']:.2f} "
+      #              f"XYZ=({x:.3f}, {y:.3f}, {z:.3f}) m"
+      #          )
 
                 if intercept is not None:
 
