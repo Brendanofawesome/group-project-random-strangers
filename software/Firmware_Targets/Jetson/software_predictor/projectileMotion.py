@@ -176,7 +176,7 @@ class BallKalman:
         if dt <= 0:
             return None
 
-        print(f"dt={dt:.3f}s")
+       # print(f"dt={dt:.3f}s")
 
         if dt > self.maxTrackingGap:
             print(

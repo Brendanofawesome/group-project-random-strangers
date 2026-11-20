@@ -4,6 +4,8 @@ from queue import Queue
 import sys
 from pathlib import Path
 
+TESTMODE = True #for testing the pipeline w/o physical camera inputs. 
+
 JETSON_DIR = Path(__file__).resolve().parent.parent
 
 sys.path.insert(0, str(JETSON_DIR))
@@ -22,8 +24,8 @@ def get_coords(x, y, z) : #probably don't touch this
 
     #recieves inctercpt coords from projectileMotion
 
-    print("recieved: ")
-    print(f"x={x:.3f}, y={y:.3f}, z={z:.3f}")
+  #  print("recieved: ")
+    #print(f"x={x:.3f}, y={y:.3f}, z={z:.3f}")
 
     yawRadians = math.atan2(
         x,
@@ -77,10 +79,14 @@ angleTolerance = math.radians(1.0)
 def gimbalTARGET ( 
     targetYaw, 
     targetPitch, 
-    currentYaw, 
-    currentPitch
+    currentYaw = None,
+    currentPitch = None
 ): 
 
+    if TESTMODE: 
+    #    print("[TEST] Simulating gimbal at target")
+        currentYaw = targetYaw
+        currentPitch = targetPitch
     return (
         abs(targetYaw - currentYaw) <= angleTolerance
         and 
@@ -89,14 +95,19 @@ def gimbalTARGET (
 
 fired = False
 
-def fire(flywheelDriver: FlywheelControllerDriver):
+def fire(): #flywheelDriver import here prveiously
     global fired
 
     if fired:
         return False
 
-    flywheelDriver.fireSolenoid().result()
+    flywheelDriver.fireSolenoid
+    print("[LAUNCHER] FIRE command sent")
 
     fired = True
     return True
 
+def reset ():
+    global fired
+    fired=False
+    print("[LAUNCHER] Fire state reset")

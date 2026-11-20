@@ -466,16 +466,16 @@ def updateProjectilePhysics(t, x, y, z):
     vy = state[4]
     vz = state[5]
 
-    print(
-        f"Filtered XYZ=("
-        f"{filteredX:.3f}, "
-        f"{filteredY:.3f}, "
-        f"{filteredZ:.3f}) "
-        f"velocity=("
-        f"{vx:.3f}, "
-        f"{vy:.3f}, "
-        f"{vz:.3f}) m/s"
-    )
+ #  print(
+  #     f"Filtered XYZ=("
+  #      f"{filteredX:.3f}, "
+  #      f"{filteredY:.3f}, "
+  #      f"{filteredZ:.3f}) "
+  #      f"velocity=("
+ #       f"{vx:.3f}, "
+ #       f"{vy:.3f}, "
+  #      f"{vz:.3f}) m/s"
+ #   )
 
     intercept = ballfilter.getFinalIntercept()
     #get_coords(intercept)
@@ -532,15 +532,17 @@ print("ZED running")
 
 #did a lot of code replacing here to get the ZED camera feed to appear on the webpage /frontend/webpge.py.
 def generate_frames():
-    has_fired = False
+    targetLogged = False
     try:
 
         while True:
 
             if (
                 zed.grab(runtime_params)
+                
                 != sl.ERROR_CODE.SUCCESS
             ):
+                print("[ZED] grab ok")
                 continue
 
             timestamp = zed.get_timestamp(
@@ -649,15 +651,17 @@ def generate_frames():
                     y,
                     z
                 )
+                if intercept is not None & targetLogged:
+                    print("[INTERCEPT] Target acquired")
                 x, y, z = calibration.camera_to_turret(
                         x,
                          y,
                          z
 )
-                print(
-                    f"conf={det['confidence']:.2f} "
-                    f"XYZ=({x:.3f}, {y:.3f}, {z:.3f}) m"
-                )
+      #          print(
+      #              f"conf={det['confidence']:.2f} "
+      #              f"XYZ=({x:.3f}, {y:.3f}, {z:.3f}) m"
+      #          )
 
                 if intercept is not None:
 
@@ -669,24 +673,39 @@ def generate_frames():
                         "z": float(point[2])
                     }
 
-                    print(
-                        f"FINAL INTERCEPT XYZ=("
-                        f"{point[0]:.3f}, "
-                        f"{point[1]:.3f}, "
-                        f"{point[2]:.3f}) m"
-                    )
+         #           print(
+         #               f"FINAL INTERCEPT XYZ=("
+         #               f"{point[0]:.3f}, "
+         #               f"{point[1]:.3f}, "
+         #               f"{point[2]:.3f}) m"
+         #           )
 
                     yawDegrees, pitchDegrees = get_coords( #GETS CURRENT ANGLE ! ONCE LOCATION IS REACHED
                         point[0],
                         point[1],
                         point[2]
                     )
+                    if not (targetLogged):
+                        print(
+                            f"[GIMBAL] yaw={yawDegrees:.2f} "
+                            f"pitch={pitchDegrees:.2f}"
+    ) 
+                        
+
+                  #  currentYaw = yawDriver.currentAngle().result()
+                  #  currentPitch = pitchDriver.currentAngle().result()
 
 
-                    if (not has_fired and BANG.gimbalCurrent)( #FIRE THE GUN!!
+                    if (BANG.gimbalTARGET)( #FIRE THE GUN!!
                         yawDegrees,
-                        pitchDegrees
+                        pitchDegrees,
+                        #currentYaw,
+                       # currentPitch
                     ):
+
+                        if not (targetLogged):
+                            print("[GIMBAL] Target reached")
+                        targetLogged = True
                         BANG.fire()
 
             # Encode current frame for browser streaming
