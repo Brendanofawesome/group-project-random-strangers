@@ -3,54 +3,31 @@
 
 #include <Arduino.h>
 
-constexpr bool DEBUG = false;
-
-//Compilation Target
-enum class Axis { Pitch, Yaw };
-
-constexpr Axis TARGET = Axis::Yaw;
-constexpr bool IS_PITCH = TARGET == Axis::Pitch;
-
 // I2C communication settings
-#define YAW_I2C_ADDRESS 0x54
-#define PITCH_I2C_ADDRESS 0x55
+// Yaw ESP32 = 0x54, MTC ESP32 = 0x55
+#define I2C_ADDRESS 0x54
 
-// I2C pins 
-#define SDA_PIN 6
-#define SCL_PIN 5
-
-// I2C communication frequency
-#define I2C_FREQUENCY 400000
-
-// SimpleFOCmini Pins
-#define PWM_A_PIN 20
-#define PWM_B_PIN 21
-#define PWM_C_PIN 10
-#define ENABLE_PIN 7
-
-// SPI Hall Sensor Configuration (PITCH)
-#define HALL_SENSOR_CS_PIN 4
-#define HALL_SENSOR_CLK_PIN 0
-#define HALL_SENSOR_MISO_PIN 1
-#define HALL_SENSOR_MOSI_PIN 3
-
-//Analog Hall Sensor Configuration (YAW)
-#define SENSOR_A_PIN 4
-#define SENSOR_B_PIN 3
-#define SENSOR_C_PIN 1
+// ESP32 I2C pins 
+//changed from pin 4 because it 
+//conflicted with SimpleFOC PWM pin
+#define SDA_PIN 25
+#define SCL_PIN 26
 
 // I2C register addresses
-enum I2C_ADDRESS_MAP {
+namespace I2C_ADDRESS_MAP {
 
     // Read-only: 1 when initialization is complete
     // Data type: uint8_t (1 byte)
-    READY = 0x00,
+    constexpr uint8_t READY = 0x00;
 
     // Read/write: target angle in radians
     // Data type: float (4 bytes)
-    TARGET_ANGLE = 0x01,
+    constexpr uint8_t TARGET_ANGLE = 0x01;
 
     // Read-only: current measured angle in radians
     // Data type: float (4 bytes)
-    CURRENT_ANGLE = 0x05
-};
+    constexpr uint8_t CURRENT_ANGLE = 0x02;
+}
+
+// I2C communication frequency
+#define I2C_FREQUENCY 100000

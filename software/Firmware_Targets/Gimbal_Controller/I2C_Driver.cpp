@@ -11,17 +11,18 @@
 // Receive data: Process register selections and writes from Jetson
 // Send data: Return requested register values to Jetson
 
-// Variables to store register data=-
-static bool ready = 0;
+// Variables to store register data
 static float currentAngle = 0.0f;
 static float targetAngle = 0.0f;
 static uint8_t controllerStatus = 0;
 
 // Register currently selected by Jetson
-static uint8_t selectedRegister = I2C_ADDRESS_MAP::READY;
+static uint8_t selectedRegister =
+    I2C_ADDRESS_MAP::READY;
 
 // Protect shared variables accessed by different ESP32 tasks
-static portMUX_TYPE registerMutex = portMUX_INITIALIZER_UNLOCKED;
+static portMUX_TYPE registerMutex =
+    portMUX_INITIALIZER_UNLOCKED;
 
 // Ensure float is exactly 4 bytes
 static_assert(sizeof(float) == 4, "Expected 4-byte float");
@@ -47,7 +48,8 @@ static void receiveEvent(int numBytes) {
     if (numBytes == 0) return;
 
     // Check if Jetson is writing to TARGET_ANGLE
-    if (reg == I2C_ADDRESS_MAP::TARGET_ANGLE && numBytes == sizeof(float)) {
+    if (reg == I2C_ADDRESS_MAP::TARGET_ANGLE &&
+        numBytes == sizeof(float)) {
 
         uint8_t bytes[4];
 
@@ -79,12 +81,23 @@ static void receiveEvent(int numBytes) {
 static void requestEvent() {
 
     // Take a consistent snapshot of the selected register
-    portENTER_CRITICAL(&registerMutex);
-    float currentAngleSnapshot = currentAngle;
-    float targetAngleSnapshot = targetAngle;
-    uint8_t readySnapshot = ready;
+    uint8_t reg;
+    float angleSnapshot = 0.0f;
+    uint8_t readySnapshot = 0;
 
-    uint8_t reg = selectedRegister;
+    portENTER_CRITICAL(&registerMutex);
+
+    reg = selectedRegister;
+
+    if (reg == I2C_ADDRESS_MAP::CURRENT_ANGLE) {
+        angleSnapshot = currentAngle;
+    }
+    else if (reg == I2C_ADDRESS_MAP::TARGET_ANGLE) {
+        angleSnapshot = targetAngle;
+    }
+    else if (reg == I2C_ADDRESS_MAP::READY) {
+        readySnapshot = ready;
+    }
 
     portEXIT_CRITICAL(&registerMutex);
 
@@ -95,8 +108,8 @@ static void requestEvent() {
 
             // Send 4 bytes containing currentAngle
             Wire.write(
-                (const uint8_t*)&currentAngleSnapshot,
-                sizeof(currentAngleSnapshot)
+                (const uint8_t*)&angleSnapshot,
+                sizeof(angleSnapshot)
             );
             break;
 
@@ -104,8 +117,8 @@ static void requestEvent() {
 
             // Send the stored target angle as 4 bytes
             Wire.write(
-                (const uint8_t*)&targetAngleSnapshot,
-                sizeof(targetAngleSnapshot)
+                (const uint8_t*)&angleSnapshot,
+                sizeof(angleSnapshot)
             );
             break;
 
@@ -135,7 +148,7 @@ bool initialize_i2c() {
 
     // Initialize I2C using config.h settings
     return Wire.begin(
-        IS_PITCH ? PITCH_I2C_ADDRESS : YAW_I2C_ADDRESS,
+        (uint8_t)I2C_ADDRESS,
         SDA_PIN,
         SCL_PIN,
         I2C_FREQUENCY
@@ -143,7 +156,8 @@ bool initialize_i2c() {
 }
 
 // Update current angle from the sensor
-void setI2CCurrentAngle(const float& angle) {
+void setCurrentAngle(float angle) {
+
     // Only store valid angle measurements
     if (!std::isfinite(angle)) return;
 
@@ -152,15 +166,22 @@ void setI2CCurrentAngle(const float& angle) {
     portEXIT_CRITICAL(&registerMutex);
 }
 
-float getI2CTargetAngle() {
+
+// Get the latest stored current angle
+float getCurrentAngle() {
+
+    float angle;
+
     portENTER_CRITICAL(&registerMutex);
-    float angle = targetAngle;
+    angle = currentAngle;
     portEXIT_CRITICAL(&registerMutex);
+
     return angle;
 }
 
-void setReady(bool readyValue) {
+// Update the initialization-ready bit
+void setReady(bool value) {
     portENTER_CRITICAL(&registerMutex);
-    ready = readyValue;
+    ready = value ? 1 : 0;
     portEXIT_CRITICAL(&registerMutex);
 }
