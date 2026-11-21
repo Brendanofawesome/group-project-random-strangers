@@ -13,6 +13,9 @@ public:
     // Returns NAN when the analog signals are invalid.
     float readAngle();
 
+    // Measure sensor parameters
+    void debugCharacterize(unsigned trials = 1000);
+
 protected:
     // SimpleFOC calls this from Sensor::update() and Sensor::init().
     // Negative values tell Sensor::update() to ignore invalid samples.
@@ -21,5 +24,6 @@ protected:
 private:
     float lastElectricalAngle = 0.0f;
     float unwrappedElectricalAngle = 0.0f;
+    bool electricalAngleInitialized = false;
 };
 

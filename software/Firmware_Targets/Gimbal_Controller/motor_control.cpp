@@ -4,117 +4,132 @@
 
 
 #include "motor_control.h"
-#include "hall_sensor.h"
 
 #include <Arduino.h>
-#include <SimpleFOC.h>
 #include <math.h>
+#include <string.h>
+
 
 // ======================================
 // ORIGINAL MOTOR CONFIGURATION
 // ======================================
 
-// 15 pole pairs
-// 14.6 ohm phase resistance
-// 15 KV rating
-static BLDCMotor motor(15, 14.6f, 15.0f);
+
+static BLDCMotor motor = IS_PITCH ? BLDCMotor(12, 8.3f, 30.0f) : BLDCMotor(15, 14.6f, 15.0f);
 
 // SimpleFOC Mini:
-// PWM A = 18
-// PWM B = 19
-// PWM C = 4
-// ENABLE = 21
-static BLDCDriver3PWM driver(18, 19, 4, 21);
+static BLDCDriver3PWM driver(PWM_A_PIN, PWM_B_PIN, PWM_C_PIN, ENABLE_PIN);
 
-// Connect Hall calculation to SimpleFOC
-static GenericSensor sensor(readHallAngle);
-
-// Sensor-monitoring readiness
-static bool monitoringReady = false;
+//commander interface
+Commander* commanderPTR;
+void doMotor(char* cmd) { 
+    if(commanderPTR != nullptr){
+        commanderPTR->motor(&motor, cmd); 
+    }
+}
 
 // ======================================
-// INITIALIZE SENSOR MONITORING
+// INITIALIZE simpleFOC motor control system
 // ======================================
 
-bool initializeMotorControl() {
-
-    monitoringReady = false;
+bool initializeMotorControl(Sensor* sensor, Commander* commander) {
+    if (sensor == nullptr) return false;
+    driver.voltage_power_supply = 24;
+    driver.pwm_frequency = 21000; //20kHz
 
     // Set the intended SimpleFOC control modes
     motor.controller = MotionControlType::angle;
-    motor.torque_controller =
-        TorqueControlType::voltage;
-
-    motor.foc_modulation =
-        FOCModulationType::SpaceVectorPWM;
+    motor.torque_controller = TorqueControlType::voltage;
+    motor.foc_modulation = FOCModulationType::SpaceVectorPWM;
 
     // Original configuration parameters
-    motor.voltage_limit = 2.0f;
-    motor.velocity_limit = 2.0f;
+    motor.voltage_limit = 24.0f;
+    motor.current_limit = 1.25f;
 
-    motor.P_angle.P = 10.0f;
+    motor.velocity_limit = 30.0f;
 
-    motor.PID_velocity.P = 0.2f;
-    motor.PID_velocity.I = 20.0f;
-    motor.PID_velocity.D = 0.0f;
+
+    motor.P_angle.P = 9.788766f;
+
+    motor.PID_velocity.P = 11.279879f;
+    motor.PID_velocity.I = 36.017700f;
+    motor.PID_velocity.D = 0.000021f;
 
     motor.LPF_velocity.Tf = 0.01f;
     motor.P_angle.output_ramp = 100.0f;
 
-    // Connect sensor object to motor object
-    motor.linkSensor(&sensor);
+    //connect sensor object to motor object
+    motor.linkSensor(sensor);
 
-    // Connect driver object to motor object
+    //connect driver object to motor object
     motor.linkDriver(&driver);
 
-    // Initialize ONLY the sensor interface
-    sensor.init();
-
-    // Read initial position
-    sensor.update();
-
-    float angle = sensor.getAngle();
-
-    if (!isfinite(angle)) {
+    //initialize the driver hardware
+    if (!driver.init()) {
         return false;
     }
 
-    monitoringReady = true;
+    if (!motor.init()) {
+        driver.disable();
+        return false;
+    }
+
+    if (!motor.initFOC()) {
+        motor.disable();
+        return false;
+    }
+
+    commanderPTR = commander;
+    if(commander != nullptr){
+        commander->add('M', doMotor, "Yaw Motor");
+    }
+
     return true;
 }
 
 // ======================================
-// UPDATE SENSOR MEASUREMENT
+// UPDATE simpleFOC motor control system
 // ======================================
-
 void updateMotorControl() {
+    static uint8_t skip_move = 0;
+    // Update the motor control system
+    motor.loopFOC();
 
-    if (!monitoringReady) {
+    if(skip_move++ == 5){
+        motor.move();
+        skip_move = 0;
+    }
+}
+
+// ======================================
+// GET CURRENT ANGLE
+// ======================================
+float getMotorCurrentAngle() {
+    return _normalizeAngle(motor.shaft_angle);
+}
+
+// ======================================
+// SET TARGET ANGLE
+// ======================================
+void setMotorTargetAngle(const float& angle) {
+    if(isfinite(angle)) {
+        motor.target = angle;
+    } else {
+        if(DEBUG) Serial.println("Received non-finite target angle, ignoring.");
         return;
     }
-
-    // Updates GenericSensor measurement
-    // No motor PWM is generated
-    sensor.update();
 }
 
 // ======================================
-// GET MEASURED ANGLE
+// GET TARGET ANGLE
 // ======================================
-
-float getMotorAngle() {
-
-    if (!monitoringReady) {
-        return NAN;
-    }
-
-    return sensor.getAngle();
+float getMotorTargetAngle(){
+    return motor.target;
 }
 
 // ======================================
-// GET MONITORING STATE
+// GET MOTOR REFERENCE
 // ======================================
-
-bool isMotorReady() {
-    return monitoringReady;
+BLDCMotor* getMotor(){
+    return &motor;
 }

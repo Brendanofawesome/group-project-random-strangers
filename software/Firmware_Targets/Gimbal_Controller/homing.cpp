@@ -6,6 +6,7 @@
 #include "motor_control.h"
 
 #include <Arduino.h>
+#include <simpleFOC.h>
 #include <math.h>
 
 //Homing configuration
@@ -39,8 +40,7 @@ void initializeHoming() {
     switchState = false;
     switchReleased = false;
 
-    lastRawState =
-        digitalRead(HOME_SWITCH_PIN) == LOW;
+    lastRawState = digitalRead(HOME_SWITCH_PIN) == LOW;
 
     lastSwitchChange = millis();
     homeOffset = 0.0f;
@@ -50,14 +50,13 @@ void initializeHoming() {
 }
 
 //Update homing switch
-void updateHoming() {
+void updateHoming(Sensor* sensor) {
 
     if (homed) {
         return;
     }
 
-    bool rawState =
-        digitalRead(HOME_SWITCH_PIN) == LOW;
+    bool rawState = digitalRead(HOME_SWITCH_PIN) == LOW;
 
     //Detect switch state changes
     if (rawState != lastRawState) {
@@ -92,7 +91,7 @@ void updateHoming() {
     }
 
     //Record home position
-    float angle = getMotorAngle();
+    float angle = sensor->getMechanicalAngle();
 
     if (!isfinite(angle)) {
 
