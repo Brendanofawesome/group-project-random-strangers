@@ -9,103 +9,89 @@
 #include <simpleFOC.h>
 #include <math.h>
 
-//Homing configuration
+
+static bool homed = false;
+static float homeOffset = NAN;
 
 //GPIO connected to the homing switch
 static constexpr int HOME_SWITCH_PIN = 27;
 
-//Switch debounce time
-static constexpr unsigned long DEBOUNCE_MS = 30;
-
-//Homing state
-
-static bool homed = false;
-static bool switchState = false;
-static bool lastRawState = false;
-
-static float homeOffset = 0.0f;
-
-static unsigned long lastSwitchChange = 0;
-
-//Require switch to be released before accepting home
-static bool switchReleased = false;
+// Number of samples to average for debouncing
+static constexpr uint8_t sampleCount = 5; 
 
 //Initialize homing
-void initializeHoming() {
+void initializeHomingSensor() {
 
     //Normally open switch connected to GND
     pinMode(HOME_SWITCH_PIN, INPUT_PULLUP);
 
     homed = false;
-    switchState = false;
-    switchReleased = false;
 
-    lastRawState = digitalRead(HOME_SWITCH_PIN) == LOW;
-
-    lastSwitchChange = millis();
-    homeOffset = 0.0f;
+    homeOffset = NAN;
 
     Serial.println("Homing initialized");
     Serial.println("Waiting for switch release...");
 }
 
-//Update homing switch
-void updateHoming(Sensor* sensor) {
-
-    if (homed) {
-        return;
+//Home the motor and return the absolute angle offset
+//  Assumes the motor is already initialized and it has a
+//  configured sensor.
+bool home(BLDCMotor* motor) {
+    if (!motor) {
+        return NAN;
     }
 
-    bool rawState = digitalRead(HOME_SWITCH_PIN) == LOW;
+    //Save current motor motion control type and target
+    MotionControlType currentMotion = motor->motion;
+    float currentTarget = motor->target;
 
-    //Detect switch state changes
-    if (rawState != lastRawState) {
+    //Set motor to open loop velocity control to move slowly
+    motor->target = 0f;
+    motor->controller = MotionControlType::velocity_openloop;
 
-        lastSwitchChange = millis();
-        lastRawState = rawState;
-    }
-
-    //Wait for stable switch state
-    if (millis() - lastSwitchChange < DEBOUNCE_MS) {
-        return;
-    }
-
-    //Update debounced switch state
-    switchState = rawState;
-
-    //Wait until switch has been released
-    if (!switchState) {
-
-        if (!switchReleased) {
-            switchReleased = true;
-            Serial.println("Switch released");
-            Serial.println("Waiting for home switch...");
+    if(digitalRead(HOME_SWITCH_PIN) == LOW){
+        //Switch is already pressed, move away from it
+        motor->target = .25f; //Move in positive direction
+        const uint32_t full_rotation_time = millis() + (_2PI / abs(motor->target)) * 1000; //limit to one full rotation
+        while(digitalRead(HOME_SWITCH_PIN) == LOW && millis() < full_rotation_time){
+            motor->loopFOC();
+            motor->move();
         }
-
-        return;
     }
 
-    //Do not establish home until switch was released
-    if (!switchReleased) {
-        return;
+    //move towards the switch until it is pressed
+    float touchAngle = NAN;
+    motor->target = -.25f; //Move in negative direction
+    const uint32_t full_rotation_time = millis() + (_2PI / abs(motor->target)) * 1000; //limit to one full rotation
+    while(digitalRead(HOME_SWITCH_PIN) == HIGH && millis() < full_rotation_time){
+        motor->loopFOC();
+        motor->move();
+    }
+    motor->target = 0.0f; //Stop the motor
+    motor->move();
+    motor->loopFOC();
+    touchAngle = motor->shaft_angle;
+
+    //homing loop
+    for(int i = 0; i < sampleCount; i++){
+        motor->controller = MotionControlType::angle;
+        motor->target = touchAngle+.1f; //Move away from the switch
+        delay(1000);
+
+        motor->controller = MotionControlType::velocity_openloop;
+        motor->target = touchAngle-.1f; //Move towards the switch
+        const uint32_t full_rotation_time = millis() + (_2PI / abs(motor->target)) * 1000; //limit to one full rotation
+        while(digitalRead(HOME_SWITCH_PIN) == HIGH && millis() < full_rotation_time){
+            motor->loopFOC();
+            motor->move();
+        }
+        touchAngle += motor->shaft_angle;
     }
 
-    //Record home position
-    float angle = sensor->getMechanicalAngle();
-
-    if (!isfinite(angle)) {
-
-        Serial.println("Homing failed: invalid angle");
-        return;
-    }
-
-    homeOffset = angle;
-    homed = true;
-
-    Serial.println("Homing complete!");
-    Serial.print("Home offset: ");
-    Serial.println(homeOffset, 6);
+    touchAngle /= sampleCount + 1; //Average the samples
+    homeOffset = touchAngle; //Record the home offset
 }
+
 
 //Check homing state
 bool isHomed() {
@@ -117,30 +103,8 @@ float getHomeOffset() {
     return homeOffset;
 }
 
-//Get homed angle
-float getHomedAngle(float motorAngle) {
-
-    if (!homed || !isfinite(motorAngle)) {
-        return NAN;
-    }
-
-    //Subtract the recorded home position
-    return motorAngle - homeOffset;
-}
-
 //Reset homing
 void resetHoming() {
-
     homed = false;
-    switchState = false;
-    switchReleased = false;
-
-    homeOffset = 0.0f;
-
-    lastRawState =
-        digitalRead(HOME_SWITCH_PIN) == LOW;
-
-    lastSwitchChange = millis();
-
-    Serial.println("Homing reset");
+    homeOffset = NAN;
 }
