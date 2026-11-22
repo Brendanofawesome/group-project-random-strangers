@@ -11,19 +11,35 @@
 
 
 // ======================================
-// ORIGINAL MOTOR CONFIGURATION
+// MOTOR CONFIGURATION
 // ======================================
-
 
 static BLDCMotor motor = IS_PITCH ? BLDCMotor(12, 8.3f, 30.0f) : BLDCMotor(15, 14.6f, 15.0f);
 
 // SimpleFOC Mini:
 static BLDCDriver3PWM driver(PWM_A_PIN, PWM_B_PIN, PWM_C_PIN, ENABLE_PIN);
 
+//planner
+#ifdef useTrapezoidalPlanner
+    #include <SimpleFOCDrivers.h>
+    #include "utilities/trapezoids/TrapezoidalPlanner.h"
+
+    TrapezoidalPlanner planner(IS_PITCH ? pitch_velocity_limit : yaw_velocity_limit, IS_PITCH ? pitch_motion_acceleration : yaw_motion_acceleration, IS_PITCH ? pitch_motion_deceleration : yaw_motion_deceleration);
+#endif
+
+
 //commander interface
 Commander* commanderPTR;
 void doMotor(char* cmd) { 
     if(commanderPTR != nullptr){
+        #ifdef useTrapezoidalPlanner
+            if ((cmd == '-' || cmd == '+' || cmd == '.' || isDigit(cmd))) {
+                float target = 0.0f;
+                commanderPTR->scalar(&target, cmd); // No +1 needed since there's no 'T' prefix
+                planner.setTarget(target);
+                return;
+            }
+        #endif
         commanderPTR->motor(&motor, cmd); 
     }
 }
@@ -42,21 +58,30 @@ bool initializeMotorControl(Sensor* sensor, Commander* commander) {
     motor.torque_controller = TorqueControlType::voltage;
     motor.foc_modulation = FOCModulationType::SpaceVectorPWM;
 
-    // Original configuration parameters
+    // configuration parameters
     motor.voltage_limit = 24.0f;
     motor.current_limit = 1.25f;
 
-    motor.velocity_limit = 30.0f;
+    if(IS_PITCH){
+        motor.velocity_limit = pitch_velocity_limit;
+        motor.P_angle.P = pitch_P_angle_P;
+        motor.PID_velocity.P = pitch_PID_velocity_P;
+        motor.PID_velocity.I = pitch_PID_velocity_I;
+        motor.PID_velocity.D = pitch_PID_velocity_D;
+        motor.LPF_angle.Tf = pitch_LPF_angle;
+        motor.LPF_velocity.Tf = pitch_LPF_velocity;
+        motor.P_angle.output_ramp = pitch_P_angle_output_ramp;
+    } else if (!IS_PITCH){
+        motor.velocity_limit = yaw_velocity_limit;
+        motor.P_angle.P = yaw_P_angle_P;
+        motor.PID_velocity.P = yaw_PID_velocity_P;
+        motor.PID_velocity.I = yaw_PID_velocity_I;
+        motor.PID_velocity.D = yaw_PID_velocity_D;
+        motor.LPF_angle.Tf = yaw_LPF_angle;
+        motor.LPF_velocity.Tf = yaw_LPF_velocity;
+        motor.P_angle.output_ramp = yaw_P_angle_output_ramp;
+    }
 
-
-    motor.P_angle.P = 9.788766f;
-
-    motor.PID_velocity.P = 11.279879f;
-    motor.PID_velocity.I = 36.017700f;
-    motor.PID_velocity.D = 0.000021f;
-
-    motor.LPF_velocity.Tf = 0.01f;
-    motor.P_angle.output_ramp = 100.0f;
 
     //connect sensor object to motor object
     motor.linkSensor(sensor);
@@ -84,6 +109,11 @@ bool initializeMotorControl(Sensor* sensor, Commander* commander) {
         commander->add('M', doMotor, "Yaw Motor");
     }
 
+    //connect planner to motor if trapezoidal planner is used
+    #ifdef useTrapezoidalPlanner
+        planner.linkMotor(&motor);
+    #endif
+
     return true;
 }
 
@@ -91,14 +121,29 @@ bool initializeMotorControl(Sensor* sensor, Commander* commander) {
 // UPDATE simpleFOC motor control system
 // ======================================
 void updateMotorControl() {
-    static uint8_t skip_move = 0;
+    #ifdef useTrapezoidalPlanner
+        static uint8_t downsample_counter = 0;
+        if(downsample_counter++ == 10){
+            float new_target = planner.run();
+
+            //feedforward velocity
+            static uint32_t previous_planner_time = micros();
+            uint32_t dt = micros() - previous_planner_time;
+            previous_planner_time = micros();
+            if(dt > 0.0f && dt < 0.5f){
+                motor.feed_forward_velocity = (new_target - motor.target) / (dt * 0.000001f);
+            } else {
+                motor.feed_forward_velocity = 0.0f;
+            }
+            
+            downsample_counter = 0;
+            motor.target = new_target;
+        }
+    #endif
+
     // Update the motor control system
     motor.loopFOC();
-
-    if(skip_move++ == 5){
-        motor.move();
-        skip_move = 0;
-    }
+    motor.move();
 }
 
 // ======================================
@@ -113,7 +158,11 @@ float getMotorCurrentAngle() {
 // ======================================
 void setMotorTargetAngle(const float& angle) {
     if(isfinite(angle)) {
-        motor.target = angle;
+        #ifdef useTrapezoidalPlanner
+            planner.setTarget(angle);
+        #else
+            motor.target = angle;
+        #endif
     } else {
         if(DEBUG) Serial.println("Received non-finite target angle, ignoring.");
         return;
@@ -124,7 +173,11 @@ void setMotorTargetAngle(const float& angle) {
 // GET TARGET ANGLE
 // ======================================
 float getMotorTargetAngle(){
-    return motor.target;
+    #ifdef useTrapezoidalPlanner
+        return planner.getTarget();
+    #else
+        return motor.target;
+    #endif
 }
 
 // ======================================

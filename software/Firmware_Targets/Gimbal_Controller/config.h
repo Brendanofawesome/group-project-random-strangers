@@ -7,9 +7,12 @@ constexpr bool DEBUG = true;
 
 //Compilation Target
 enum class Axis { Pitch, Yaw };
-
-constexpr Axis TARGET = Axis::Yaw;
 constexpr bool IS_PITCH = TARGET == Axis::Pitch;
+constexpr Axis TARGET = Axis::Yaw;
+
+// Motor Control Settings
+#define useTrapezoidalPlanner
+
 
 // I2C communication settings
 #define YAW_I2C_ADDRESS 0x54
@@ -42,6 +45,8 @@ constexpr bool IS_PITCH = TARGET == Axis::Pitch;
 
 // Tuning parameters for the Yaw motor
 constexpr float yaw_velocity_limit = 30.0f;
+constexpr float yaw_motion_acceleration = 10.0f; // trapezoidal planner limit, rad/s^2
+constexpr float yaw_motion_deceleration = 10.0f; // trapezoidal planner limit, rad/s^2
 constexpr float yaw_P_angle_P = 7.398931f;
 constexpr float yaw_PID_velocity_P = 11.279879f;
 constexpr float yaw_PID_velocity_I = 36.017700f;
@@ -52,6 +57,8 @@ constexpr float yaw_P_angle_output_ramp = 10.0f;
 
 // Tuning parameters for the Pitch motor
 constexpr float pitch_velocity_limit = 30.0f;
+constexpr float pitch_motion_acceleration = 10.0f; // trapezoidal planner limit, rad/s^2
+constexpr float pitch_motion_deceleration = 10.0f; // trapezoidal planner limit, rad/s^2
 constexpr float pitch_P_angle_P = 9.788766f;
 constexpr float pitch_PID_velocity_P = 11.279879f;
 constexpr float pitch_PID_velocity_I = 36.017700f;
