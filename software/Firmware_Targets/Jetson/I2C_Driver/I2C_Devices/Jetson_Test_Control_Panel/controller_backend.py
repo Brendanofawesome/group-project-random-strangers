@@ -41,9 +41,9 @@ def percent_value(value):
 class Hardware:
     def __init__(self):
         # Import lazily so --demo needs only Python and Tkinter.
-        from I2C_Handler import Jetson_I2C_Handler
-        from Jetson_Gimbal_Controller_Driver import GimbalControllerDriver
-        from Jetson_Flywheel_Controller_Driver import FlywheelControllerDriver
+        from ...I2C_Handler import Jetson_I2C_Handler
+        from ..Jetson_Gimbal_Controller_Driver import GimbalControllerDriver
+        from ..Jetson_Flywheel_Controller_Driver import FlywheelControllerDriver
 
         self._handler = Jetson_I2C_Handler(I2C_BUS, doErrorChecking=False)
         try:
