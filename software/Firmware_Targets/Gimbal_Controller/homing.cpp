@@ -6,7 +6,7 @@
 #include "motor_control.h"
 
 #include <Arduino.h>
-#include <simpleFOC.h>
+#include <SimpleFOC.h>
 #include <math.h>
 
 

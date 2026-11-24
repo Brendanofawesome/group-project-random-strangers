@@ -2,7 +2,7 @@
 #pragma once
 
 #include <Arduino.h>
-#include <simpleFOC.h>
+#include <SimpleFOC.h>
 
 //Initialize homing switch and state
 void initializeHomingSensor();
