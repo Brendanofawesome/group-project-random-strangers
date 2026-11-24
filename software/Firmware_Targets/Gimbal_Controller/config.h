@@ -3,15 +3,24 @@
 
 //Debug Flags
 constexpr bool DEBUG = true;
-//#define doAutoTune
+//#define doAutoTune //at startup, begin PID tuning loop
 
 //Compilation Target
 enum class Axis { Pitch, Yaw };
-constexpr bool IS_PITCH = TARGET == Axis::Pitch;
+
 constexpr Axis TARGET = Axis::Yaw;
+constexpr bool IS_PITCH = TARGET == Axis::Pitch;
+constexpr bool IS_YAW = TARGET == Axis::Yaw;
+
+//Static Zero Angle Offsets
+#define YAW_STATIC_OFFSET 0.0f
+static constexpr int YAW_HOME_SWITCH_PIN = 0;
+#define YAW_SWITCH_ACTIVE 0
+
+#define PITCH_STATIC_OFFSET 0.0f 
 
 // Motor Control Settings
-#define useTrapezoidalPlanner
+//#define useTrapezoidalPlanner
 
 
 // I2C communication settings
@@ -47,22 +56,26 @@ constexpr Axis TARGET = Axis::Yaw;
 constexpr float yaw_velocity_limit = 30.0f;
 constexpr float yaw_motion_acceleration = 10.0f; // trapezoidal planner limit, rad/s^2
 constexpr float yaw_motion_deceleration = 10.0f; // trapezoidal planner limit, rad/s^2
-constexpr float yaw_P_angle_P = 7.398931f;
-constexpr float yaw_PID_velocity_P = 11.279879f;
-constexpr float yaw_PID_velocity_I = 36.017700f;
-constexpr float yaw_PID_velocity_D = 0.0000001f;
+constexpr float yaw_P_angle_P = 4.0f;
+constexpr float yaw_P_angle_I = 0.0f;
+constexpr float yaw_P_angle_D = 0.15f;
+constexpr float yaw_PID_velocity_P = 18.0f;
+constexpr float yaw_PID_velocity_I = 220.0f;
+constexpr float yaw_PID_velocity_D = 0.0f;
 constexpr float yaw_LPF_angle = 0.06f; //yaw motor has a noisy sensor
 constexpr float yaw_LPF_velocity = 0.01f;
-constexpr float yaw_P_angle_output_ramp = 10.0f;
+constexpr float yaw_P_angle_output_ramp = 0f;
 
 // Tuning parameters for the Pitch motor
 constexpr float pitch_velocity_limit = 30.0f;
 constexpr float pitch_motion_acceleration = 10.0f; // trapezoidal planner limit, rad/s^2
 constexpr float pitch_motion_deceleration = 10.0f; // trapezoidal planner limit, rad/s^2
 constexpr float pitch_P_angle_P = 9.788766f;
-constexpr float pitch_PID_velocity_P = 11.279879f;
-constexpr float pitch_PID_velocity_I = 36.017700f;
-constexpr float pitch_PID_velocity_D = 0.0000001f;
+constexpr float pitch_P_angle_I = 0.0f;
+constexpr float pitch_P_angle_D = 0.9f;
+constexpr float pitch_PID_velocity_P = 15.0f;
+constexpr float pitch_PID_velocity_I = 150.0f;
+constexpr float pitch_PID_velocity_D = 0.0f;
 constexpr float pitch_LPF_angle = 0.00f; 
 constexpr float pitch_LPF_velocity = 0.01f;
 constexpr float pitch_P_angle_output_ramp = 10.0f;

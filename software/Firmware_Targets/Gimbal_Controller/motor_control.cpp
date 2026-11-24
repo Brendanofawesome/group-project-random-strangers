@@ -24,7 +24,9 @@ static BLDCDriver3PWM driver(PWM_A_PIN, PWM_B_PIN, PWM_C_PIN, ENABLE_PIN);
     #include <SimpleFOCDrivers.h>
     #include "utilities/trapezoids/TrapezoidalPlanner.h"
 
-    TrapezoidalPlanner planner(IS_PITCH ? pitch_velocity_limit : yaw_velocity_limit, IS_PITCH ? pitch_motion_acceleration : yaw_motion_acceleration, IS_PITCH ? pitch_motion_deceleration : yaw_motion_deceleration);
+    TrapezoidalPlanner planner( IS_PITCH ? pitch_velocity_limit : yaw_velocity_limit,
+                                IS_PITCH ? pitch_motion_acceleration : yaw_motion_acceleration, 
+                                IS_PITCH ? pitch_motion_deceleration : yaw_motion_deceleration);
 #endif
 
 
@@ -33,9 +35,9 @@ Commander* commanderPTR;
 void doMotor(char* cmd) { 
     if(commanderPTR != nullptr){
         #ifdef useTrapezoidalPlanner
-            if ((cmd == '-' || cmd == '+' || cmd == '.' || isDigit(cmd))) {
+            if ((cmd[0] == '-' || cmd[0] == '+' || cmd[0] == '.' || isDigit(cmd[0]))) {
                 float target = 0.0f;
-                commanderPTR->scalar(&target, cmd); // No +1 needed since there's no 'T' prefix
+                commanderPTR->scalar(&target, cmd); 
                 planner.setTarget(target);
                 return;
             }
@@ -71,7 +73,8 @@ bool initializeMotorControl(Sensor* sensor, Commander* commander) {
         motor.LPF_angle.Tf = pitch_LPF_angle;
         motor.LPF_velocity.Tf = pitch_LPF_velocity;
         motor.P_angle.output_ramp = pitch_P_angle_output_ramp;
-    } else if (!IS_PITCH){
+        motor.P_angle.D = pitch_P_angle_D;
+    } else if (IS_YAW){
         motor.velocity_limit = yaw_velocity_limit;
         motor.P_angle.P = yaw_P_angle_P;
         motor.PID_velocity.P = yaw_PID_velocity_P;
@@ -80,7 +83,8 @@ bool initializeMotorControl(Sensor* sensor, Commander* commander) {
         motor.LPF_angle.Tf = yaw_LPF_angle;
         motor.LPF_velocity.Tf = yaw_LPF_velocity;
         motor.P_angle.output_ramp = yaw_P_angle_output_ramp;
-    }
+        motor.P_angle.D = yaw_P_angle_D;
+    } else return false;
 
 
     //connect sensor object to motor object
@@ -111,7 +115,7 @@ bool initializeMotorControl(Sensor* sensor, Commander* commander) {
 
     //connect planner to motor if trapezoidal planner is used
     #ifdef useTrapezoidalPlanner
-        planner.linkMotor(&motor);
+        planner.linkMotor(motor);
     #endif
 
     return true;

@@ -6,10 +6,10 @@
 #include <common/base_classes/Sensor.h>
 
 //MT6816 encoder using the four-wire SPI interface.
-class MT6816 : public Sensor {
+class MT6816_custom : public Sensor {
 public:
     //CS is required. SPI uses mode 3, MSB first; default clock is 8 MHz.
-    explicit MT6816(int chip_select_pin, uint32_t clock_speed = 8000000);
+    explicit MT6816_custom(int chip_select_pin, uint32_t clock_speed = 8000000);
 
     void init() override;
     // For custom pins, configure the bus with spi->begin(...) before init().

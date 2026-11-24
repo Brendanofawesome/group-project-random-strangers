@@ -9,14 +9,14 @@ constexpr uint16_t kNoMagnetBit = 0x0002;
 constexpr uint32_t kMaxClockSpeed = 15625000; // The datasheet specifies a minimum SCK period of 64 ns.
 }
 
-MT6816::MT6816(int chip_select_pin, uint32_t clock_speed)
+MT6816_custom::MT6816_custom(int chip_select_pin, uint32_t clock_speed)
     : chip_select_pin_(chip_select_pin), clock_speed_(clock_speed), settings_(clock_speed, MSBFIRST, SPI_MODE3) {}
 
-void MT6816::init() {
+void MT6816_custom::init() {
     init(&SPI);
 }
 
-void MT6816::init(SPIClass* spi) {
+void MT6816_custom::init(SPIClass* spi) {
     error_ = true;
     spi_ = spi;
     if (spi_ == nullptr || chip_select_pin_ < 0 || clock_speed_ < 500000 || clock_speed_ > kMaxClockSpeed) {
@@ -34,12 +34,12 @@ void MT6816::init(SPIClass* spi) {
     Sensor::init();
 }
 
-float MT6816::getSensorAngle() {
+float MT6816_custom::getSensorAngle() {
     const float angle = readAngle();
     return angle;
 }
 
-float MT6816::readAngle() {
+float MT6816_custom::readAngle() {
     //keep the pair of register reads together on a shared SPI bus.
     spi_->beginTransaction(settings_);
     const uint16_t high = readRegister(kAngleHighRegister);
@@ -59,7 +59,7 @@ float MT6816::readAngle() {
     return static_cast<float>(frame >> 2) * kRadiansPerCount;
 }
 
-uint8_t MT6816::readRegister(uint8_t address) {
+uint8_t MT6816_custom::readRegister(uint8_t address) {
     digitalWrite(chip_select_pin_, LOW);
     delayMicroseconds(1); //at least 100 ns from CS falling to first clock.
     spi_->transfer(static_cast<uint8_t>(address | kReadCommand));

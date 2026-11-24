@@ -22,12 +22,17 @@ float angleDifference(float current, float previous) {
     return _normalizeAngle(current - previous + _PI) - _PI;
 }
 
+float round_fractional_bits(const float& val, const int& frac_bits) {
+    float scaled = std::ldexp(val, frac_bits); // val * 2^frac_bits
+    return std::ldexp(std::round(scaled), -frac_bits); // round and divide by 2^frac_bits
+}
+
 float readAnalogMillivoltsAveraged(int pin) {
     uint32_t total = 0;
     for (int i = 0; i < ADC_SAMPLES; ++i) {
         total += analogReadMilliVolts(pin);
     }
-    return static_cast<float>(total) / static_cast<float>(ADC_SAMPLES);
+    return round_fractional_bits(static_cast<float>(total) / static_cast<float>(ADC_SAMPLES), 8); //analog hall is not that precise
 }
 } // namespace
 

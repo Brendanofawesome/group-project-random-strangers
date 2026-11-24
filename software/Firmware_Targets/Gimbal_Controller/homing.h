@@ -10,7 +10,7 @@ void initializeHomingSensor();
 //Home the motor and return the absolute angle offset
 //  Assumes the motor is already initialized and it has a
 //  configured sensor.
-float home(BLDCMotor* motor);
+bool home(BLDCMotor* motor);
 
 //Check whether home has been established
 bool isHomed();
