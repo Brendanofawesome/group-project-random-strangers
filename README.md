@@ -69,8 +69,8 @@ Demonstrate a functional prototype capable of detecting, tracking, aiming at, an
 
 - 🚧 **Targeting and Firing system**
   - ✅ Camera-to-gimbal coordinate transformation
-  - ⬜ Interceptor Trajectory Estimation
-  - ⬜ Web-server control for firing at an arbitrary point on the camera view
+  - 🚧 Interceptor Trajectory Estimation
+  - 🚧 Web-server control for firing at an arbitrary point on the camera view
   - ✅ Intercept-time and position calculator
   - ✅ Target tracking and trajectory estimation
   - ✅ Firing safety interlocks
@@ -83,7 +83,7 @@ Demonstrate a functional prototype capable of detecting, tracking, aiming at, an
 - ⬜ Emergency-stop functionality
 - ⬜ Startup, shutdown, and fault-recovery behavior
 - ⬜ Repeatable firing accuracy testing
-- ⬜ System performance and latency measurements
+- 🚧 System performance and latency measurements
     
 
 ---
