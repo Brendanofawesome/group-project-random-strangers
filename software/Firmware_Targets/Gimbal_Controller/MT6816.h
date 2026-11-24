@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <SPI.h>
+#include <SimpleFOC.h>
 #include <common/base_classes/Sensor.h>
 
 //MT6816 encoder using the four-wire SPI interface.

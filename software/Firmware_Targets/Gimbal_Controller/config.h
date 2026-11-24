@@ -8,14 +8,14 @@ constexpr bool DEBUG = true;
 //Compilation Target
 enum class Axis { Pitch, Yaw };
 
-constexpr Axis TARGET = Axis::Yaw;
+constexpr Axis TARGET = Axis::Pitch;
 constexpr bool IS_PITCH = TARGET == Axis::Pitch;
 constexpr bool IS_YAW = TARGET == Axis::Yaw;
 
 //Static Zero Angle Offsets
 #define YAW_STATIC_OFFSET -0.4308f
 static constexpr int YAW_HOME_SWITCH_PIN = 0;
-#define YAW_SWITCH_ACTIVE 0
+#define YAW_SWITCH_ACTIVE 0.59633493f
 
 #define PITCH_STATIC_OFFSET 0.0f 
 
@@ -40,8 +40,8 @@ constexpr float pitch_motion_deceleration = 10.0f; // rad/s^2
 #define I2C_FREQUENCY 400000
 
 // SimpleFOCmini Pins
-#define PWM_A_PIN 20
-#define PWM_B_PIN 21
+#define PWM_A_PIN (IS_PITCH ? 21 : 20)
+#define PWM_B_PIN (IS_PITCH ? 20 : 21)
 #define PWM_C_PIN 10
 #define ENABLE_PIN 7
 
@@ -70,12 +70,12 @@ constexpr float yaw_LPF_velocity = 0.02f;
 constexpr float yaw_P_angle_output_ramp = 20.0f;
 
 // Tuning parameters for the Pitch motor
-constexpr float pitch_velocity_limit = 30.0f;
-constexpr float pitch_P_angle_P = 9.788766f;
+constexpr float pitch_velocity_limit = 40.0f;
+constexpr float pitch_P_angle_P = 2.0f;
 constexpr float pitch_P_angle_I = 0.0f;
-constexpr float pitch_P_angle_D = 0.9f;
-constexpr float pitch_PID_velocity_P = 15.0f;
-constexpr float pitch_PID_velocity_I = 150.0f;
+constexpr float pitch_P_angle_D = 0.0f;
+constexpr float pitch_PID_velocity_P = 2.0f;
+constexpr float pitch_PID_velocity_I = 20.0f;
 constexpr float pitch_PID_velocity_D = 0.0f;
 constexpr float pitch_LPF_angle = 0.00f; 
 constexpr float pitch_LPF_velocity = 0.01f;

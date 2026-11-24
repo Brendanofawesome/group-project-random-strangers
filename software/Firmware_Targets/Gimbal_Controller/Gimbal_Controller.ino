@@ -27,7 +27,7 @@ constexpr uint8_t STATUS_READY = 1;
 constexpr uint8_t STATUS_SENSOR_ERROR = 2;
 
 static analog_hall_sensor analog_sensor;
-static MT6816_custom magnetic_encoder(HALL_SENSOR_CS_PIN);
+static MT6816_custom magnetic_encoder(HALL_SENSOR_CS_PIN, 1000000); //1MHz
 static Sensor* selected_sensor = IS_PITCH ? static_cast<Sensor*>(&magnetic_encoder) : static_cast<Sensor*>(&analog_sensor);
 
 Commander commander('\n', false);

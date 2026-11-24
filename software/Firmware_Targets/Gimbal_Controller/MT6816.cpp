@@ -54,18 +54,36 @@ float MT6816_custom::readAngle() {
     parity ^= parity >> 2;
     parity ^= parity >> 1;
     error_ = ((parity & 1u) != 0u) || ((frame & kNoMagnetBit) != 0u);
+            /*static uint32_t lastDebug = 0;
+
+            if (millis() - lastDebug >= 250) {
+                lastDebug = millis();
+
+                Serial.printf(
+                    "03=%02X 04=%02X raw=%u parity=%s magnet=%u\n",
+                    static_cast<unsigned>(high),
+                    static_cast<unsigned>(low),
+                    static_cast<unsigned>(frame >> 2),
+                    (parity & 1u) ? "BAD" : "OK",
+                    static_cast<unsigned>((frame & kNoMagnetBit) != 0)
+                );
+            }*/
     if (error_) return -1.0f;
 
     return static_cast<float>(frame >> 2) * kRadiansPerCount;
 }
 
 uint8_t MT6816_custom::readRegister(uint8_t address) {
+    const uint16_t command = static_cast<uint16_t>(kReadCommand | address) << 8;
+
     digitalWrite(chip_select_pin_, LOW);
-    delayMicroseconds(1); //at least 100 ns from CS falling to first clock.
-    spi_->transfer(static_cast<uint8_t>(address | kReadCommand));
-    const uint8_t value = spi_->transfer(0x00); // Clock out the data byte.
-    delayMicroseconds(1); //at least half an SCK period before CS rises.
+    delayMicroseconds(1);
+
+    const uint16_t response = spi_->transfer16(command);
+
+    delayMicroseconds(1);
     digitalWrite(chip_select_pin_, HIGH);
-    delayMicroseconds(1); //separate consecutive register accesses.
-    return value;
+    delayMicroseconds(1);
+
+    return static_cast<uint8_t>(response & 0xFFu);
 }
