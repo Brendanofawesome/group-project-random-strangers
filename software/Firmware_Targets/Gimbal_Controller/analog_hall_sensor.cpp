@@ -44,6 +44,7 @@ void analog_hall_sensor::init() {
     pinMode(SENSOR_B_PIN, INPUT);
     pinMode(SENSOR_C_PIN, INPUT);
 
+    analogReadResolution(12);
     analogSetPinAttenuation(SENSOR_A_PIN, ADC_11db);
     analogSetPinAttenuation(SENSOR_B_PIN, ADC_11db);
     analogSetPinAttenuation(SENSOR_C_PIN, ADC_11db);

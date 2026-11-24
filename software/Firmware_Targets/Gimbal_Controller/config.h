@@ -21,6 +21,11 @@ static constexpr int YAW_HOME_SWITCH_PIN = 0;
 
 // Motor Control Settings
 //#define useTrapezoidalPlanner
+constexpr float yaw_motion_acceleration = 10.0f; // rad/s^2
+constexpr float yaw_motion_deceleration = 10.0f; // rad/s^2
+
+constexpr float pitch_motion_acceleration = 10.0f; // rad/s^2
+constexpr float pitch_motion_deceleration = 10.0f; // rad/s^2
 
 
 // I2C communication settings
@@ -53,23 +58,19 @@ static constexpr int YAW_HOME_SWITCH_PIN = 0;
 
 
 // Tuning parameters for the Yaw motor
-constexpr float yaw_velocity_limit = 30.0f;
-constexpr float yaw_motion_acceleration = 10.0f; // trapezoidal planner limit, rad/s^2
-constexpr float yaw_motion_deceleration = 10.0f; // trapezoidal planner limit, rad/s^2
+constexpr float yaw_velocity_limit = 40.0f;
 constexpr float yaw_P_angle_P = 4.0f;
 constexpr float yaw_P_angle_I = 0.0f;
-constexpr float yaw_P_angle_D = 0.15f;
-constexpr float yaw_PID_velocity_P = 18.0f;
+constexpr float yaw_P_angle_D = 0.2f;
+constexpr float yaw_PID_velocity_P = 16.0f;
 constexpr float yaw_PID_velocity_I = 220.0f;
 constexpr float yaw_PID_velocity_D = 0.0f;
-constexpr float yaw_LPF_angle = 0.06f; //yaw motor has a noisy sensor
-constexpr float yaw_LPF_velocity = 0.01f;
-constexpr float yaw_P_angle_output_ramp = 0f;
+constexpr float yaw_LPF_angle = 0.015f; //yaw motor has a noisy sensor
+constexpr float yaw_LPF_velocity = 0.02f;
+constexpr float yaw_P_angle_output_ramp = 20.0f;
 
 // Tuning parameters for the Pitch motor
 constexpr float pitch_velocity_limit = 30.0f;
-constexpr float pitch_motion_acceleration = 10.0f; // trapezoidal planner limit, rad/s^2
-constexpr float pitch_motion_deceleration = 10.0f; // trapezoidal planner limit, rad/s^2
 constexpr float pitch_P_angle_P = 9.788766f;
 constexpr float pitch_P_angle_I = 0.0f;
 constexpr float pitch_P_angle_D = 0.9f;
@@ -78,7 +79,7 @@ constexpr float pitch_PID_velocity_I = 150.0f;
 constexpr float pitch_PID_velocity_D = 0.0f;
 constexpr float pitch_LPF_angle = 0.00f; 
 constexpr float pitch_LPF_velocity = 0.01f;
-constexpr float pitch_P_angle_output_ramp = 10.0f;
+constexpr float pitch_P_angle_output_ramp = 0.0f;
 
 
 
