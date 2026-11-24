@@ -20,9 +20,8 @@ from flask import (
     jsonify,
     redirect
 )
-
-import BANG
 import logging
+
 
 log = logging.getLogger("werkzeug")
 log.setLevel(logging.ERROR)
@@ -38,7 +37,12 @@ PREDICTOR_DIR = (
 
 sys.path.append(str(PREDICTOR_DIR))
 
+import BANG
+import screencapGrabber
+
 from screencapGrabber import generate_frames, trackingStatus
+from BANG import get_coords
+from flask import request
 
 app = Flask(__name__)
 
@@ -142,6 +146,8 @@ def fire():
 
             <img
                 src="/video_feed"
+                id="camera"
+                onclick="sendClick(event)"
                 style="width:80%; max-width:900px;"
             >
         <div id="tracking">
@@ -193,10 +199,77 @@ def fire():
 }
 </style>
 
+
+<!-- Manual control. Click event to denote where the click occured. we'll pass it to get_coords through a python event and it should follow the normal route after -->
+
+
+<script>
+function sendClick(event) { 
+    const img = event.target; 
+    const rect = img.getBoundingClientRect();
+
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    fetch("/manual_click", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            x: x,
+            y: y,
+            width: rect.width,
+            height: rect.height
+        })
+    });
+}
+</script>
+
         </body>
     </html>
     """
 
+@app.route("/manual_click", methods=["POST"])
+def manual_click():
+    data = request.get_json()
+
+    click_x = data["x"]
+    click_y = data["y"]
+    displayed_width = data["width"]
+    displayed_height = data["height"]
+
+    xyz = screencapGrabber.get_manual_xyz(
+        click_x,
+        click_y,
+        displayed_width,
+        displayed_height
+    )
+
+    if xyz is None:
+        print("[MANUAL] No valid depth at clicked point")
+        return jsonify({"ok": False})
+
+    x, y, z = xyz
+
+    yawDegrees, pitchDegrees = BANG.get_coords(x, y, z)
+
+    print(
+        f"[MANUAL] XYZ=({x:.3f}, {y:.3f}, {z:.3f}) "
+        f"yaw={yawDegrees:.2f} pitch={pitchDegrees:.2f}"
+    )
+
+
+    # send yawDegrees / pitchDegrees to gimbal I2C here
+
+    return jsonify({
+        "ok": True,
+        "x": x,
+        "y": y,
+        "z": z,
+        "yaw": yawDegrees,
+        "pitch": pitchDegrees
+    })
 
 @app.route("/video_feed")
 def video_feed():
