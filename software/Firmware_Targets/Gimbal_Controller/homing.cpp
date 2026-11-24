@@ -12,8 +12,8 @@
 
 static bool homed = false;
 static float homeOffset = NAN;
-static const float home_speed = 0.1f;
-static const float find_speed = 0.25f;
+static const float home_speed = 0.05f;
+static const float find_speed = 0.5f;
 
 // Number of samples to average for debouncing
 static constexpr uint8_t sampleCount = 5; 

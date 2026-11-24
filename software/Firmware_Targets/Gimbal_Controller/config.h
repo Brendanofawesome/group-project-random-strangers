@@ -13,7 +13,7 @@ constexpr bool IS_PITCH = TARGET == Axis::Pitch;
 constexpr bool IS_YAW = TARGET == Axis::Yaw;
 
 //Static Zero Angle Offsets
-#define YAW_STATIC_OFFSET 0.0f
+#define YAW_STATIC_OFFSET -0.4308f
 static constexpr int YAW_HOME_SWITCH_PIN = 0;
 #define YAW_SWITCH_ACTIVE 0
 

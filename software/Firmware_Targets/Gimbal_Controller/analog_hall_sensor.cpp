@@ -32,7 +32,7 @@ float readAnalogMillivoltsAveraged(int pin) {
     for (int i = 0; i < ADC_SAMPLES; ++i) {
         total += analogReadMilliVolts(pin);
     }
-    return round_fractional_bits(static_cast<float>(total) / static_cast<float>(ADC_SAMPLES), 8); //analog hall is not that precise
+    return round_fractional_bits(static_cast<float>(total) / static_cast<float>(ADC_SAMPLES), 9); //analog hall is not that precise
 }
 } // namespace
 
