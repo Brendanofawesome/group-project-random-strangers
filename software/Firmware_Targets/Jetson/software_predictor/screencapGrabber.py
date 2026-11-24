@@ -28,6 +28,11 @@ trackingStatus = {
     "future": None
 }
 
+# three variables for manual control, do not touch. check webpage.py manual-click script for more notes. Also, check inside geerate_frames
+latestPointCloud = None
+cameraWidth = None
+cameraHeight = None 
+
 imgoinginsane.init()
 device = imgoinginsane.Device(0)
 
@@ -529,6 +534,41 @@ point_cloud = sl.Mat()
 
 print("ZED running")
 
+def get_manual_xyz(
+    click_x,
+    click_y,
+    displayed_width,
+    displayed_height
+):
+    if latestPointCloud is None:
+        return None
+
+    u = int(
+        click_x / displayed_width * cameraWidth
+    )
+
+    v = int(
+        click_y / displayed_height * cameraHeight
+    )
+
+    xyz = get_xyz(
+        latestPointCloud,
+        u,
+        v
+    )
+
+    if xyz is None:
+        return None
+
+    x, y, z = xyz
+
+    x, y, z = calibration.camera_to_turret(
+        x,
+        y,
+        z
+    )
+
+    return x, y, z
 
 #did a lot of code replacing here to get the ZED camera feed to appear on the webpage /frontend/webpge.py.
 def generate_frames():
@@ -563,6 +603,11 @@ def generate_frames():
                 point_cloud,
                 sl.MEASURE.XYZ
             )
+            #manual code for grabbing the final coords
+            global latestPointCloud, cameraWidth, cameraHeight
+
+            latestPointCloud = point_cloud
+            cameraHeight, cameraWidth = frame.shape[:2]
 
             frame_bgra = zed_image.get_data()
 
@@ -723,6 +768,7 @@ def generate_frames():
                 + buffer.tobytes()
                 + b"\r\n"
             )
+
 
     finally:
         zed.close()
