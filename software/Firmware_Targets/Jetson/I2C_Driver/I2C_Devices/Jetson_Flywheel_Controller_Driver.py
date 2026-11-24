@@ -6,12 +6,12 @@ from ..I2C_Handler import I2CTransaction, Jetson_I2C_Handler, I2CResult
 from .address_map_grabber import address_map_grabber
 
 # get the register map from the launch controller config file
-flywheelControllerRegisterMap = address_map_grabber("../../../Launch_Controller/config.h")
 
 class FlywheelControllerDriver:
-    def __init__(self, I2C_Handler: Jetson_I2C_Handler, I2C_Address: int):
+    def __init__(self, I2C_Handler: Jetson_I2C_Handler, I2C_Address: int, register_map: dict[str, int] | None = None):
         self._I2C_Address = I2C_Address
         self._I2C_Handler = I2C_Handler
+        self._register_map = register_map if register_map is not None else address_map_grabber("../../../Launch_Controller/config.h")
         I2C_Handler.register_device("Launch Controller", I2C_Address, False)
         
     def ready(self) -> I2CResult[bool]:
@@ -27,7 +27,7 @@ class FlywheelControllerDriver:
         
         transaction = I2CTransaction(
             deviceAddress=self._I2C_Address,
-            registerAddress=flywheelControllerRegisterMap["READY"],
+            registerAddress=self._register_map["READY"],
             readCount=1
         )
         
@@ -47,7 +47,7 @@ class FlywheelControllerDriver:
         
         transaction = I2CTransaction(
             deviceAddress=self._I2C_Address,
-            registerAddress=flywheelControllerRegisterMap["FLYWHEELS_ARMED"],
+            registerAddress=self._register_map["FLYWHEELS_ARMED"],
             readCount=1
         )
         
@@ -59,7 +59,7 @@ class FlywheelControllerDriver:
         
         transaction = I2CTransaction(
             deviceAddress=self._I2C_Address,
-            registerAddress=flywheelControllerRegisterMap["FLYWHEELS_ARMED"],
+            registerAddress=self._register_map["FLYWHEELS_ARMED"],
             writeData=b'\x01',
             readCount=0
         )
@@ -72,7 +72,7 @@ class FlywheelControllerDriver:
         
         transaction = I2CTransaction(
             deviceAddress=self._I2C_Address,
-            registerAddress=flywheelControllerRegisterMap["FLYWHEELS_ARMED"],
+            registerAddress=self._register_map["FLYWHEELS_ARMED"],
             writeData=b'\x00',
             readCount=0
         )
@@ -93,7 +93,7 @@ class FlywheelControllerDriver:
         
         transaction = I2CTransaction(
             deviceAddress=self._I2C_Address,
-            registerAddress=flywheelControllerRegisterMap["RPM_TARGET"],
+            registerAddress=self._register_map["RPM_TARGET"],
             readCount=4
         )
         
@@ -105,7 +105,7 @@ class FlywheelControllerDriver:
         
         transaction = I2CTransaction(
             deviceAddress=self._I2C_Address,
-            registerAddress=flywheelControllerRegisterMap["RPM_TARGET"],
+            registerAddress=self._register_map["RPM_TARGET"],
             writeData=pack("<f", rpm),
             readCount=0
         )
@@ -126,7 +126,7 @@ class FlywheelControllerDriver:
 
         transaction = I2CTransaction(
             deviceAddress=self._I2C_Address,
-            registerAddress=flywheelControllerRegisterMap["LEFT_ACTUAL_RPM"],
+            registerAddress=self._register_map["LEFT_ACTUAL_RPM"],
             readCount=4
         )
 
@@ -146,7 +146,7 @@ class FlywheelControllerDriver:
         
         transaction = I2CTransaction(
             deviceAddress=self._I2C_Address,
-            registerAddress=flywheelControllerRegisterMap["RIGHT_ACTUAL_RPM"],
+            registerAddress=self._register_map["RIGHT_ACTUAL_RPM"],
             readCount=4
         )
         
@@ -166,7 +166,7 @@ class FlywheelControllerDriver:
         
         transaction = I2CTransaction(
             deviceAddress=self._I2C_Address,
-            registerAddress=flywheelControllerRegisterMap["SOLENOID_ARMED"],
+            registerAddress=self._register_map["SOLENOID_ARMED"],
             readCount=1
         )
         
@@ -178,7 +178,7 @@ class FlywheelControllerDriver:
         
         transaction = I2CTransaction(
             deviceAddress=self._I2C_Address,
-            registerAddress=flywheelControllerRegisterMap["SOLENOID_ARMED"],
+            registerAddress=self._register_map["SOLENOID_ARMED"],
             writeData=b'\x01',
             readCount=0
         )
@@ -191,7 +191,7 @@ class FlywheelControllerDriver:
         
         transaction = I2CTransaction(
             deviceAddress=self._I2C_Address,
-            registerAddress=flywheelControllerRegisterMap["SOLENOID_ARMED"],
+            registerAddress=self._register_map["SOLENOID_ARMED"],
             writeData=b'\x00',
             readCount=0
         )
@@ -204,7 +204,7 @@ class FlywheelControllerDriver:
         
         transaction = I2CTransaction(
             deviceAddress=self._I2C_Address,
-            registerAddress=flywheelControllerRegisterMap["SOLENOID_FIRE"],
+            registerAddress=self._register_map["SOLENOID_FIRE"],
             writeData=b'\x01',
             readCount=0
         )
@@ -217,7 +217,7 @@ class FlywheelControllerDriver:
         
         transaction = I2CTransaction(
             deviceAddress=self._I2C_Address,
-            registerAddress=flywheelControllerRegisterMap["SOLENOID_FIRE"],
+            registerAddress=self._register_map["SOLENOID_FIRE"],
             writeData=b'\x00',
             readCount=0
         )

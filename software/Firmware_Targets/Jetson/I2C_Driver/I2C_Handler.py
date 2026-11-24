@@ -76,7 +76,7 @@ class I2CTransaction:
 
     inProgressLock: threading.Lock = field(default_factory=threading.Lock, init=False)
     error: Exception | None = field(default=None, init=False)
-    done: threading.Event = field(default=threading.Event(), init=False)
+    done: threading.Event = field(default_factory=threading.Event, init=False)
     
 
 class Jetson_I2C_Handler:
@@ -129,10 +129,11 @@ class Jetson_I2C_Handler:
 
                 self.doErrorChecking: bool = doErrorChecking
                 self.lastErrorCheck: float = float("NaN")
-                self.runThread: threading.Thread = threading.Thread(target=self._runner_task)
+                self.runThread: threading.Thread = threading.Thread(target=self._runner_task, daemon=True)
 
                 logger.debug(f"Initialized an I2C Driver on BusID:{i2c_bus_id}")
                 self._initialized = True
+                self._stopping = False
 
             except OSError:
                 #remove failed instances
@@ -140,55 +141,39 @@ class Jetson_I2C_Handler:
                 raise
     
     def submitTransaction(self, transaction: I2CTransaction) -> None:
-        """Submit a transaction to the driver's queue and wait for it to complete.
-
-        Args:
-            transaction: Transaction to submit. 
-        """
-
-        self._transaction_queue.put(transaction)
+        """Queue a fresh transaction; its I2CResult reports success or failure."""
+        with self.dataLock:
+            if not self._initialized or self._stopping:
+                raise RuntimeError("I2C driver is closed or stopping")
+            self._transaction_queue.put(transaction)
 
     def startDriverThread(self) -> None:
-        """Start the worker thread that consumes the transaction queue.
-        """
-
         with self.dataLock:
-            if(self.runThread.is_alive()):
-                logger.debug(f"Starting I2C Driver Runner Thread on BusID:{self._i2c_bus_id} error checking {'enabled' if self.doErrorChecking else 'disabled'}")
-                self.runThread.start()
-            else:
-                logger.warning(f"Attempted to start I2C Driver Runner Thread on BusID:{self._i2c_bus_id} but it is already running")
+            if self.runThread.is_alive():
+                return
+            if self._stopping or self.runThread.ident is not None:
+                raise RuntimeError("Create a new driver after stopping it")
+            self.runThread.start()
 
     def stopDriverThread(self) -> None:
-        """Stop the worker thread that consumes the transaction queue.
-        """
-
-        logger.debug(f"Stopping I2C Driver Runner Thread on BusID:{self._i2c_bus_id}")
-
+        # Never join while holding dataLock: the worker also needs it.
         with self.dataLock:
-            if getattr(self, "_initialized", False):
-                if(self.runThread.is_alive()):
-                    self._transaction_queue.put(None) #tell runner to exit
-                    self.runThread.join()
-                else:
-                    logger.warning(f"Attempted to stop I2C Driver Runner Thread on BusID:{self._i2c_bus_id} but it is not running")
+            if not self._stopping:
+                self._stopping = True
+                self._transaction_queue.put(None)
+        if self.runThread.is_alive():
+            self.runThread.join(timeout=2.0)
+            if self.runThread.is_alive():
+                raise TimeoutError("I2C worker did not stop; bus may be blocked")
 
     def close(self) -> None:
-        """Close this driver's bus and remove it from the singleton registry.
-        """
-
-        logger.debug(f"Removing an I2C Driver on BusID:{self._i2c_bus_id}")
-
+        if not getattr(self, "_initialized", False):
+            return
+        self.stopDriverThread()
         with self._instance_lock:
-            if getattr(self, "_initialized", False):
-                self._bus.close()
-                self._instances.pop(self._i2c_bus_id, None)
-
-                if(self.runThread.is_alive()):
-                    self._transaction_queue.put(None) #tell runner to exit
-                    self.runThread.join()
-
-                self._initialized = False
+            self._bus.close()
+            self._instances.pop(self._i2c_bus_id, None)
+            self._initialized = False
 
     def register_device(self, device_name: str, i2cAddress: int, errors_supported: bool) -> bool:
             """Register a device address for transaction validation.
@@ -225,7 +210,7 @@ class Jetson_I2C_Handler:
     
             all_new_errors: dict[str, list[str]] = dict()
             with self.dataLock:
-                devices = self._devices.items() #snapshot
+                devices = list(self._devices.items()) #snapshot
 
 
             for device_address, (device_name, errors_supported) in devices:
@@ -295,141 +280,67 @@ class Jetson_I2C_Handler:
         """
         
         next_error_check = monotonic()
-
-        while(True):
-            if self.doErrorChecking:
-                if(monotonic() >= next_error_check):
-                    self.update_errors()
-                    next_error_check = monotonic() + self._error_check_period_s
-
-                timeout = max(0.0, next_error_check - monotonic())
+        while True:
+            if self.doErrorChecking and monotonic() >= next_error_check:
                 try:
-                    next_transaction = self._transaction_queue.get(block=True, timeout=timeout)
-                except Empty: #timeout
-                    continue
+                    self.update_errors()
+                except Exception:
+                    logger.exception("Could not poll I2C errors")
+                next_error_check = monotonic() + self._error_check_period_s
+            timeout = max(0.0, next_error_check - monotonic()) if self.doErrorChecking else None
+            try:
+                transaction = self._transaction_queue.get(timeout=timeout)
+            except Empty:
+                continue
+            if transaction is None:
+                break
+            with transaction.inProgressLock:
+                try:
+                    reason = self._validate_transaction(transaction)
+                    if reason:
+                        raise ValueError(reason)
+                    self._perform_transaction(transaction)
+                except Exception as error:
+                    transaction.error = error
+                finally:
+                    # Also finish invalid/failed transactions so callers never hang.
+                    transaction.done.set()
 
-                if(next_transaction is None): #exit thread signal
-                    break 
-
-                with next_transaction.inProgressLock:
-                    error_reason = self._validate_transaction(next_transaction)
-                    if(error_reason is None):
-                        try:
-                            self._perform_transaction(next_transaction)
-                        except Exception as error:
-                            next_transaction.error = error
-                    
-                        next_transaction.done.set()
-                    else:
-                        logging.warning(error_reason)
-
-
-            else:
-                next_transaction = self._transaction_queue.get(block=True)
-                if(next_transaction is None): #exit thread signal
-                    break 
-                
-                with next_transaction.inProgressLock:
-                    error_reason = self._validate_transaction(next_transaction)
-                    if(error_reason is None):
-                        try:
-                            self._perform_transaction(next_transaction)
-                        except Exception as error:
-                            next_transaction.error = error
-                            
-                        next_transaction.done.set()
-                    else:
-                        logging.warning(error_reason)
-
-    def _validate_transaction(self, transaction: I2CTransaction) -> str | None: 
-        """
-            Validate an i2c transaction
-
-            Returns:
-                None: if transaction is valid
-                str: containing error reason when transaction is invalid
-        """
-
-        reasons: list[str] = []
-
-        #check if the device address makes sense
-        if(not isinstance(transaction.deviceAddress, int)): 
-            reasons.append("device address not an int, ")
-        elif(transaction.deviceAddress < 0x8 or transaction.deviceAddress > 0x77): #address in reserved range
-                if(not      (transaction.deviceAddress == 0x0 and transaction.readCount == 0)           #general addressing is fine
-                    and not (transaction.deviceAddress == 0x7C or transaction.deviceAddress == 0x7F)):  #deviceID queries are fine
-                    reasons.append("I2C address in invalid range, ")
-        elif(transaction.deviceAddress not in self._devices):
-            reasons.append("I2C transaction to unknown device, ")
-            
-
-        #check if the register address makes sense
-        if(not isinstance(transaction.registerAddress, int)):
-            if(not transaction.registerAddress is None):
-                reasons.append("register address is an invalid type, ")
-        elif(transaction.registerAddress < 0):
-            reasons.append("register address is negative, ")
-
-        #check if the write buffer is bad
-        if(not transaction.writeData is None and not isinstance(transaction.writeData, bytes)):
-            reasons.append("writeData is an invalid type, ")
-
-        #check if read is bad
-        if(not isinstance(transaction.readCount, int)):
-            if(not transaction.readCount is None):
-                reasons.append("readCount is an invalid type, ")
-        elif(not transaction.readCount == 0 and not isinstance(transaction.readData, bytes)):
-            reasons.append("invalid read buffer, ")
-
-        #check if transaction is already done
-        if(transaction.done.is_set()):
-            reasons.append("transaction already marked as done, ")
-
-        #return the result
-        if(reasons != ""):
-            return f"i2c transaction was marked invalid. Device: {transaction.deviceAddress}, Register: {transaction.registerAddress}, write_data: {transaction.writeData}, readCount = {transaction.readCount};".join(reasons)
-        else:
-            return None
+    def _validate_transaction(self, transaction: I2CTransaction) -> str | None:
+        address = transaction.deviceAddress
+        if not isinstance(address, int) or not 0x08 <= address <= 0x77:
+            return "Expected a nonreserved 7-bit I2C device address"
+        if address not in self._devices:
+            return "I2C transaction to an unregistered device"
+        register = transaction.registerAddress
+        if register is not None and (not isinstance(register, int) or not 0 <= register <= 0xFF):
+            return "Expected a one-byte register address"
+        if not isinstance(transaction.writeData, bytes):
+            return "writeData must be bytes"
+        if not isinstance(transaction.readCount, int) or transaction.readCount < 0:
+            return "readCount must be a nonnegative integer"
+        if transaction.done.is_set():
+            return "Submit a new transaction instead of reusing a completed one"
+        return None
 
     def _perform_transaction(self, transaction: I2CTransaction) -> None:
-        """
-            Execute one already-validated transaction on the physical bus.
-
-            This method performs blocking I2C I/O.
-        """
-
-        with transaction.inProgressLock and self.dataLock: 
-            write_message = None
+        # The runner owns transaction.inProgressLock. Acquire only the bus lock.
+        with self.dataLock:
+            payload = transaction.writeData
+            if transaction.registerAddress is not None:
+                payload = bytes([transaction.registerAddress]) + payload
+            messages = []
+            if payload:
+                messages.append(i2c_msg.write(transaction.deviceAddress, payload))
             read_message = None
-
-            #construct write message
-            if(len(transaction.writeData) > 0 and transaction.registerAddress is not None):
-                #need to send data with address first
-                write_message = i2c_msg(transaction.deviceAddress, bytes(transaction.registerAddress) + transaction.writeData)
-            elif(len(transaction.writeData) > 0):
-                #only need to send data
-                write_message = i2c_msg(transaction.deviceAddress, transaction.writeData)
-            elif(transaction.registerAddress is not None):
-                #only need to send an address
-                write_message = i2c_msg(transaction.deviceAddress, bytes(transaction.registerAddress))
-
-            #construct read message
-            if(transaction.readCount > 0):
-                read_message = i2c_msg(transaction.deviceAddress, transaction.readCount)
-
-            #send the command
-            if(write_message is not None and read_message is not None):
-                self._bus.i2c_rdwr(write_message, read_message)
-            elif(write_message is not None):
-                self._bus.i2c_rdwr(write_message)
-            elif(read_message is not None):
-                self._bus.i2c_rdwr(read_message)
-
-            #return the response
-            if(read_message is not None):
-                transaction.readData = read_message.buf
-
-            transaction.done.set()
+            if transaction.readCount:
+                read_message = i2c_msg.read(transaction.deviceAddress, transaction.readCount)
+                messages.append(read_message)
+            if not messages:
+                raise ValueError("Empty I2C transaction")
+            self._bus.i2c_rdwr(*messages)
+            if read_message is not None:
+                transaction.readData = bytes(read_message)
 
     #ensures that there is only one active driver per bus
     def __new__(cls, i2c_bus_id: int, *args, **kwargs) -> Jetson_I2C_Handler:

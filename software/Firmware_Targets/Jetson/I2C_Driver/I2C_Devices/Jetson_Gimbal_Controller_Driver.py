@@ -3,11 +3,11 @@ from struct import pack, unpack
 from ..I2C_Handler import I2CTransaction, Jetson_I2C_Handler, I2CResult
 from .address_map_grabber import address_map_grabber
 
-gimbalControllerRegisterMap = address_map_grabber("../../../Gimbal_Controller/config.h")
 
 class GimbalControllerDriver:
-    def __init__(self, I2C_Handler: Jetson_I2C_Handler, YAW_ADDRESS: int, PITCH_ADDRESS: int):
+    def __init__(self, I2C_Handler: Jetson_I2C_Handler, YAW_ADDRESS: int, PITCH_ADDRESS: int, register_map: dict[str, int] | None = None):
         self._I2C_Handler = I2C_Handler
+        self._register_map = register_map if register_map is not None else address_map_grabber("../../../Gimbal_Controller/config.h")
         I2C_Handler.register_device("Yaw Controller", YAW_ADDRESS, False)
         I2C_Handler.register_device("Pitch Controller", PITCH_ADDRESS, False)
         
@@ -27,7 +27,7 @@ class GimbalControllerDriver:
         
         transaction = I2CTransaction(
             deviceAddress=self._Yaw_I2C_Address,
-            registerAddress=gimbalControllerRegisterMap["READY"],
+            registerAddress=self._register_map["READY"],
             readCount=1
         )
         
@@ -47,7 +47,7 @@ class GimbalControllerDriver:
         
         transaction = I2CTransaction(
             deviceAddress=self._Pitch_I2C_Address,
-            registerAddress=gimbalControllerRegisterMap["READY"],
+            registerAddress=self._register_map["READY"],
             readCount=1
         )
         
@@ -62,14 +62,14 @@ class GimbalControllerDriver:
         
         pitch_transaction = I2CTransaction(
             deviceAddress=self._Pitch_I2C_Address,
-            registerAddress=gimbalControllerRegisterMap["TARGET_ANGLE"],
+            registerAddress=self._register_map["TARGET_ANGLE"],
             writeData=pack("<f", pitch),
             readCount=0,
         )
         
         yaw_transaction = I2CTransaction(
             deviceAddress=self._Yaw_I2C_Address,
-            registerAddress=gimbalControllerRegisterMap["TARGET_ANGLE"],
+            registerAddress=self._register_map["TARGET_ANGLE"],
             writeData=pack("<f", yaw),
             readCount=0,
         )
@@ -93,7 +93,7 @@ class GimbalControllerDriver:
 
         pitch_transaction = I2CTransaction(
             deviceAddress=self._Pitch_I2C_Address,
-            registerAddress=gimbalControllerRegisterMap["TARGET_ANGLE"],
+            registerAddress=self._register_map["TARGET_ANGLE"],
             readCount=4
         )
 
@@ -114,9 +114,26 @@ class GimbalControllerDriver:
     
             pitch_transaction = I2CTransaction(
                 deviceAddress=self._Yaw_I2C_Address,
-                registerAddress=gimbalControllerRegisterMap["TARGET_ANGLE"],
+                registerAddress=self._register_map["TARGET_ANGLE"],
                 readCount=4
             )
     
             self._I2C_Handler.submitTransaction(pitch_transaction)
             return I2CResult(pitch_transaction, decode_data)
+
+    def read_current_yaw(self) -> I2CResult[float]:
+        """Read the measured yaw in radians, rather than the target."""
+        return self._read_current(self._Yaw_I2C_Address)
+
+    def read_current_pitch(self) -> I2CResult[float]:
+        """Read the measured pitch in radians, rather than the target."""
+        return self._read_current(self._Pitch_I2C_Address)
+
+    def _read_current(self, address: int) -> I2CResult[float]:
+        transaction = I2CTransaction(
+            deviceAddress=address,
+            registerAddress=self._register_map["CURRENT_ANGLE"],
+            readCount=4,
+        )
+        self._I2C_Handler.submitTransaction(transaction)
+        return I2CResult(transaction, lambda data: unpack("<f", data)[0])
