@@ -45,7 +45,7 @@ class Hardware:
         from ..Jetson_Gimbal_Controller_Driver import GimbalControllerDriver
         from ..Jetson_Flywheel_Controller_Driver import FlywheelControllerDriver
 
-        self._handler = Jetson_I2C_Handler(I2C_BUS, doErrorChecking=False)
+        self._handler = Jetson_I2C_Handler(doErrorChecking=False)
         try:
             self.gimbal = GimbalControllerDriver(self._handler, YAW_ADDRESS=YAW_ADDRESS, PITCH_ADDRESS=PITCH_ADDRESS)
             self.launch = FlywheelControllerDriver(self._handler, I2C_Address=LAUNCHER_ADDRESS)

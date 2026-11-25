@@ -93,7 +93,7 @@ class Jetson_I2C_Handler:
     _instances: ClassVar[dict[int, Jetson_I2C_Handler]] = {}
     _instance_lock: ClassVar[threading.Lock] = threading.Lock()
 
-    def __init__(self, i2c_bus_id: int, transaction_queue: Queue[I2CTransaction | None] | None = None, doErrorChecking: bool = False) -> None:
+    def __init__(self, i2c_bus_id: int = 7, transaction_queue: Queue[I2CTransaction | None] | None = None, doErrorChecking: bool = False) -> None:
         """Initialize the singleton driver for ``i2c_bus_id``.
 
         Args:
@@ -343,7 +343,7 @@ class Jetson_I2C_Handler:
                 transaction.readData = bytes(read_message)
 
     #ensures that there is only one active driver per bus
-    def __new__(cls, i2c_bus_id: int, *args, **kwargs) -> Jetson_I2C_Handler:
+    def __new__(cls, *args, **kwargs) -> Jetson_I2C_Handler:
         """Return the existing driver for ``i2c_bus_id`` or allocate one.
         """
 

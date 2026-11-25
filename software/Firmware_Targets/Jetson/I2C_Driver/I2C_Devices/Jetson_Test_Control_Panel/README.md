@@ -7,7 +7,6 @@ A compact Tkinter panel using the supplied Jetson drivers. Requires Python 3.10+
 Extract the folder, open a terminal in it, and install the dependency:
 
 ```bash
-python3 -m pip install -r requirements.txt
 python3 control_panel.py
 ```
 

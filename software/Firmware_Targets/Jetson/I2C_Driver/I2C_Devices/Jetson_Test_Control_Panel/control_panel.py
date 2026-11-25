@@ -6,7 +6,7 @@ from time import monotonic
 import tkinter as tk
 from tkinter import ttk
 
-from controller_backend import Demo, Hardware, I2C_BUS, finite
+from .controller_backend import Demo, Hardware, I2C_BUS, finite
 
 
 class ControlPanel(tk.Tk):

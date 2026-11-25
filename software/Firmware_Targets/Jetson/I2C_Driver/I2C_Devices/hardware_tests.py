@@ -4,7 +4,7 @@ from .Jetson_Gimbal_Controller_Driver import GimbalControllerDriver
 from .Jetson_Flywheel_Controller_Driver import FlywheelControllerDriver
 from ..I2C_Handler import Jetson_I2C_Handler
 
-i2c_handler = Jetson_I2C_Handler(1)
+i2c_handler = Jetson_I2C_Handler()
 
 gimbal_driver = GimbalControllerDriver(i2c_handler,0x54,0x55)
 flywheel_driver = FlywheelControllerDriver(i2c_handler,0x62)
