@@ -2,11 +2,14 @@
 """Compact Jetson I2C control panel. Run with --demo to preview without hardware."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+import logging
 from time import monotonic
 import tkinter as tk
 from tkinter import ttk
 
-from .controller_backend import Demo, Hardware, I2C_BUS, finite
+from controller_backend import Demo, Hardware, I2C_BUS, finite
+
+logger = logging.getLogger(__name__)
 
 
 class ControlPanel(tk.Tk):
@@ -23,6 +26,7 @@ class ControlPanel(tk.Tk):
         self.next_poll = 0.0
         self.state = None
         self.status = tk.StringVar(value="Demo mode" if options.demo else "Disconnected")
+        self.device_status = tk.StringVar(value="Yaw: Not connected · Pitch: Not connected · Launcher: Not connected")
         self.current_yaw = tk.StringVar(value="—")
         self.current_pitch = tk.StringVar(value="—")
         self.target_label = tk.StringVar(value="Target   — / —")
@@ -34,6 +38,7 @@ class ControlPanel(tk.Tk):
         self.applied = tk.StringVar(value="Applied   —")
         self.launch_status = tk.StringVar(value="Not connected")
         self.gimbal_controls, self.launch_controls = [], []
+        self.axis_controls = {"yaw": [], "pitch": []}
         self._styles()
         self._layout()
         self._enable_controls()
@@ -82,6 +87,7 @@ class ControlPanel(tk.Tk):
         ttk.Label(header, text=f"Bus {I2C_BUS}", style="Muted.TLabel").grid(row=0, column=1, padx=(22, 10))
         self.connect_button = self._button(header, "Connect", self.connect, row=0, column=3)
         ttk.Label(header, textvariable=self.status, style="Muted.TLabel", wraplength=535).grid(row=1, column=0, columnspan=4, sticky="w", pady=(5, 0))
+        ttk.Label(header, textvariable=self.device_status, style="Muted.TLabel", wraplength=535).grid(row=2, column=0, columnspan=4, sticky="w", pady=(4, 0))
 
         gimbal = ttk.Frame(body, padding=12, style="Card.TFrame")
         gimbal.grid(row=1, column=0, sticky="nsew", padx=(0, 9))
@@ -93,19 +99,19 @@ class ControlPanel(tk.Tk):
         arrows.grid(row=3, column=0, columnspan=3, pady=(7, 5))
         for text, row, col, axis, sign in (("Pitch +", 0, 1, "pitch", 1), ("Yaw -", 1, 0, "yaw", -1),
                                           ("Yaw +", 1, 2, "yaw", 1), ("Pitch -", 2, 1, "pitch", -1)):
-            self._button(arrows, text, lambda a=axis, s=sign: self.jog(a, s), self.gimbal_controls,
+            self._button(arrows, text, lambda a=axis, s=sign: self.jog(a, s), self.axis_controls[axis],
                          row=row, column=col, padx=2, pady=2)
         self._button(arrows, "Hold", lambda: self.action("Hold requested", "hold"), self.gimbal_controls,
                      row=1, column=1, padx=2, pady=2)
         ttk.Label(gimbal, textvariable=self.target_label, style="Small.TLabel").grid(row=4, column=0, columnspan=3)
         inputs = ttk.Frame(gimbal, style="Card.TFrame")
         inputs.grid(row=5, column=0, columnspan=3, pady=(10, 0))
-        for col, label, variable in ((0, "Yaw °", self.yaw_input), (2, "Pitch °", self.pitch_input)):
+        for col, axis, label, variable in ((0, "yaw", "Yaw °", self.yaw_input), (2, "pitch", "Pitch °", self.pitch_input)):
             ttk.Label(inputs, text=label, style="Card.TLabel").grid(row=0, column=col, padx=(0, 4))
             entry = ttk.Entry(inputs, width=6, textvariable=variable)
             entry.grid(row=0, column=col + 1, padx=(0, 8))
             entry.bind("<Return>", lambda event: self.move())
-            self.gimbal_controls.append(entry)
+            self.axis_controls[axis].append(entry)
         self._button(inputs, "Go", self.move, self.gimbal_controls, row=0, column=4)
         ttk.Label(inputs, text="Step °", style="Small.TLabel").grid(row=1, column=0, pady=(8, 0))
         ttk.Combobox(inputs, width=5, textvariable=self.step, values=("0.5", "1", "5", "10"), state="readonly").grid(row=1, column=1, sticky="w", pady=(8, 0))
@@ -177,23 +183,41 @@ class ControlPanel(tk.Tk):
 
     def _enable_controls(self):
         state = self.state
-        gimbal_ok = self.online and state and state.yaw_ready and state.pitch_ready and not (self.closing or self.transition)
-        launch_ok = self.online and state and state.launch_ready and not (self.closing or self.transition)
-        for widgets, enabled in ((self.gimbal_controls, gimbal_ok), (self.launch_controls, launch_ok)):
+        active = self.online and state and not (self.closing or self.transition)
+        yaw_ok = active and state.yaw_available and state.yaw_ready
+        pitch_ok = active and state.pitch_available and state.pitch_ready
+        launch_ok = active and state.launch_available and state.launch_ready
+        for widgets, enabled in ((self.axis_controls["yaw"], yaw_ok), (self.axis_controls["pitch"], pitch_ok),
+                                 (self.gimbal_controls, yaw_ok or pitch_ok), (self.launch_controls, launch_ok)):
             for widget in widgets:
                 widget.state(["!disabled"] if enabled else ["disabled"])
         self.fire_button.state(["!disabled"] if launch_ok and state.solenoid_armed else ["disabled"])
         self.stop_button.state(["!disabled"] if self.connected and state and state.launch_available and not (self.closing or self.transition) else ["disabled"])
 
     def _show(self, state):
+        previous = self.state
+        for axis, variable in (("yaw", self.yaw_input), ("pitch", self.pitch_input)):
+            if getattr(state, axis + "_ready") and not (previous and getattr(previous, axis + "_ready")):
+                variable.set(f"{getattr(state, axis + '_target'):.1f}")
+        if state.launch_ready and not (previous and previous.launch_ready):
+            self.percent.set(state.percent)
+            self.percent_input.set(f"{state.percent:g}")
         self.state, self.online = state, True
-        self.current_yaw.set(f"{state.yaw:.1f}°")
-        self.current_pitch.set(f"{state.pitch:.1f}°")
-        self.target_label.set(f"Target   {state.yaw_target:.1f}° / {state.pitch_target:.1f}°")
+        self.current_yaw.set(f"{state.yaw:.1f}°" if state.yaw_ready else "—")
+        self.current_pitch.set(f"{state.pitch:.1f}°" if state.pitch_ready else "—")
+        yaw_target = f"{state.yaw_target:.1f}°" if state.yaw_ready else "—"
+        pitch_target = f"{state.pitch_target:.1f}°" if state.pitch_ready else "—"
+        self.target_label.set(f"Target   {yaw_target} / {pitch_target}")
+        labels = []
+        for name, available, ready in (("Yaw", state.yaw_available, state.yaw_ready),
+                                        ("Pitch", state.pitch_available, state.pitch_ready),
+                                        ("Launcher", state.launch_available, state.launch_ready)):
+            labels.append(name + ": " + ("Not connected" if not available else "Ready" if ready else "Starting"))
+        self.device_status.set(" · ".join(labels))
         self.flywheel_arm.configure(text="Disarm wheels" if state.flywheel_armed else "Arm wheels")
         self.solenoid_arm.configure(text="Disarm solenoid" if state.solenoid_armed else "Arm solenoid")
-        self.applied.set(f"Applied   {state.percent:.1f}%" if state.launch_available else "Applied   —")
-        self.launch_status.set(("Ready" if state.launch_ready else "Starting…") if state.launch_available else "Unavailable")
+        self.applied.set(f"Applied   {state.percent:.1f}%" if state.launch_ready else "Applied   —")
+        self.launch_status.set(("Ready" if state.launch_ready else "Starting…") if state.launch_available else "Not connected")
         self._enable_controls()
 
     def action(self, message, method, *args):
@@ -206,8 +230,10 @@ class ControlPanel(tk.Tk):
 
     def move(self):
         try:
-            yaw, pitch = finite(self.yaw_input.get()), finite(self.pitch_input.get())
+            yaw = finite(self.yaw_input.get()) if self.state and self.state.yaw_ready else None
+            pitch = finite(self.pitch_input.get()) if self.state and self.state.pitch_ready else None
         except ValueError as error:
+            logger.exception("Invalid gimbal target")
             self.status.set(str(error))
             return
         self.action("Gimbal target sent", "move", yaw, pitch)
@@ -221,6 +247,7 @@ class ControlPanel(tk.Tk):
             if not 0 <= value <= 100:
                 raise ValueError("Flywheel target must be between 0 and 100%")
         except ValueError as error:
+            logger.exception("Invalid flywheel target")
             self.status.set(str(error))
             return
         self.percent.set(value)
@@ -230,7 +257,7 @@ class ControlPanel(tk.Tk):
         self.jobs = [(future, label) for future, label in self.jobs if not future.cancel()]
 
     def stop_launch(self):
-        if not self.connected or self.closing:
+        if not self.connected or self.closing or not self.state or not self.state.launch_available:
             return
         self._cancel_pending()
         self.percent.set(0)
@@ -275,12 +302,9 @@ class ControlPanel(tk.Tk):
                     self.connected = True
                     self.connect_button.configure(text="Disconnect")
                     self.connect_button.state(["!disabled"])
-                    self.yaw_input.set(f"{result.yaw_target:.1f}")
-                    self.pitch_input.set(f"{result.pitch_target:.1f}")
-                    self.percent.set(result.percent)
-                    self.percent_input.set(f"{result.percent:g}")
+                    self.state = None  # Initialize inputs from each ready device.
                     self._show(result)
-                    self.status.set("Demo · simulated angles" if self.options.demo else f"Connected · bus {I2C_BUS}")
+                    self.status.set("Demo · simulated angles" if self.options.demo else f"Bus {I2C_BUS} open")
                 elif label == "poll":
                     recovering = not self.online
                     self._show(result)
@@ -290,12 +314,15 @@ class ControlPanel(tk.Tk):
                     self.status.set(label)
                     self.next_poll = 0
             except Exception as error:
+                logger.exception("Control panel operation failed: %s", label)
                 self.status.set(str(error))
                 if label in ("connect", "poll"):
                     self.online = False
                     self.current_yaw.set("—")
                     self.current_pitch.set("—")
+                    self.target_label.set("Target   — / —")
                     self.applied.set("Applied   —")
+                    self.device_status.set("Communication unavailable")
                     self.launch_status.set("Communication unavailable")
                     self._enable_controls()
             finally:
@@ -310,6 +337,7 @@ class ControlPanel(tk.Tk):
                     self.target_label.set("Target   — / —")
                     self.applied.set("Applied   —")
                     self.launch_status.set("Not connected")
+                    self.device_status.set("Yaw: Not connected · Pitch: Not connected · Launcher: Not connected")
                     self._enable_controls()
                     if label == "close":
                         if future.exception():
@@ -332,6 +360,7 @@ class ControlPanel(tk.Tk):
 
 
 def main():
+    logging.basicConfig(level=logging.ERROR, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--demo", action="store_true", help="Preview without hardware or smbus2")
     ControlPanel(parser.parse_args()).mainloop()

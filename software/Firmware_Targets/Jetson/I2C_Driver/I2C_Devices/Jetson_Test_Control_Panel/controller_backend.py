@@ -1,5 +1,7 @@
 """Driver-level controls and an optional GUI demo. All angles here are degrees."""
 from dataclasses import dataclass, replace
+import errno
+import logging
 from math import degrees, radians, isfinite
 from time import monotonic
 
@@ -7,6 +9,9 @@ YAW_ADDRESS = 0x54
 PITCH_ADDRESS = 0x55
 LAUNCHER_ADDRESS = 0x62
 I2C_BUS = 1
+
+logger = logging.getLogger(__name__)
+ACK_FAILURES = {errno.ENXIO, getattr(errno, "EREMOTEIO", 121)}
 
 
 @dataclass
@@ -22,6 +27,8 @@ class State:
     flywheel_armed: bool = False
     solenoid_armed: bool = False
     percent: float = 0.0
+    yaw_available: bool = False
+    pitch_available: bool = False
 
 
 def finite(value):
@@ -41,11 +48,11 @@ def percent_value(value):
 class Hardware:
     def __init__(self):
         # Import lazily so --demo needs only Python and Tkinter.
-        from ...I2C_Handler import Jetson_I2C_Handler
-        from ..Jetson_Gimbal_Controller_Driver import GimbalControllerDriver
-        from ..Jetson_Flywheel_Controller_Driver import FlywheelControllerDriver
+        from I2C_Handler import Jetson_I2C_Handler
+        from Jetson_Gimbal_Controller_Driver import GimbalControllerDriver
+        from Jetson_Flywheel_Controller_Driver import FlywheelControllerDriver
 
-        self._handler = Jetson_I2C_Handler(doErrorChecking=False)
+        self._handler = Jetson_I2C_Handler(I2C_BUS, doErrorChecking=False)
         try:
             self.gimbal = GimbalControllerDriver(self._handler, YAW_ADDRESS=YAW_ADDRESS, PITCH_ADDRESS=PITCH_ADDRESS)
             self.launch = FlywheelControllerDriver(self._handler, I2C_Address=LAUNCHER_ADDRESS)
@@ -53,7 +60,8 @@ class Hardware:
         except Exception:
             self._handler.close()
             raise
-        self.state = State(launch_available=True)
+        self.state = State()
+        self._missing = set()
 
     @staticmethod
     def _wait(results):
@@ -61,35 +69,63 @@ class Hardware:
         deadline = monotonic() + 1.0
         return [result.result(timeout=max(0, deadline - monotonic())) for result in results]
 
+    def _read_device(self, name, address, ready_reader, readers):
+        try:
+            ready = bool(self._wait([ready_reader()])[0])
+            values = self._wait([reader() for reader in readers]) if ready else None
+        except OSError as error:
+            if error.errno not in ACK_FAILURES:
+                raise
+            if name not in self._missing:
+                logger.exception("%s (0x%02X): not connected", name.capitalize(), address)
+            self._missing.add(name)
+            return False, False, None
+        self._missing.discard(name)
+        return True, ready, values
+
     def snapshot(self):
+        state = replace(self.state)
         g, launch = self.gimbal, self.launch
-        reads = [g.read_current_yaw(), g.read_current_pitch(), g.read_target_yaw(),
-                 g.read_target_pitch(), g.YAW_Ready(), g.PITCH_Ready()]
-        if launch:
-            reads += [launch.ready(), launch.flywheelsArmed(), launch.solenoidArmed(), launch.flywheelRPMTarget()]
-        values = self._wait(reads)
-        angles = [degrees(finite(value)) for value in values[:4]]
-        state = State(*angles, bool(values[4]), bool(values[5]), launch is not None)
-        if launch:
-            state.launch_ready, state.flywheel_armed, state.solenoid_armed = map(bool, values[6:9])
-            state.percent = percent_value(values[9])
+        for axis, address, ready_reader, readers in (
+            ("yaw", YAW_ADDRESS, g.YAW_Ready, (g.read_current_yaw, g.read_target_yaw)),
+            ("pitch", PITCH_ADDRESS, g.PITCH_Ready, (g.read_current_pitch, g.read_target_pitch)),
+        ):
+            available, ready, values = self._read_device(axis, address, ready_reader, readers)
+            setattr(state, axis + "_available", available)
+            setattr(state, axis + "_ready", ready)
+            if values is not None:
+                setattr(state, axis, degrees(finite(values[0])))
+                setattr(state, axis + "_target", degrees(finite(values[1])))
+        state.launch_available, state.launch_ready, values = self._read_device(
+            "launcher", LAUNCHER_ADDRESS, launch.ready,
+            (launch.flywheelsArmed, launch.solenoidArmed, launch.flywheelRPMTarget),
+        )
+        state.flywheel_armed = state.solenoid_armed = False
+        if values is not None:
+            state.flywheel_armed, state.solenoid_armed = map(bool, values[:2])
+            state.percent = percent_value(values[2])
         self.state = state
         return replace(state)
 
-    def move(self, yaw, pitch):
-        yaw, pitch = finite(yaw), finite(pitch)
-        if not (self.state.yaw_ready and self.state.pitch_ready):
-            raise RuntimeError("Gimbal is not ready")
-        self._wait(self.gimbal.set_target_angles(radians(yaw), radians(pitch)))
-        self.state.yaw_target, self.state.pitch_target = yaw, pitch
+    def move(self, yaw=None, pitch=None):
+        targets = {axis: finite(value) for axis, value in (("yaw", yaw), ("pitch", pitch)) if value is not None}
+        if not targets:
+            raise RuntimeError("No gimbal axis is ready")
+        for axis in targets:
+            if not getattr(self.state, axis + "_ready"):
+                raise RuntimeError(f"{axis.capitalize()} is not ready")
+        for axis, value in targets.items():
+            self._wait([getattr(self.gimbal, "set_target_" + axis)(radians(value))])
+            setattr(self.state, axis + "_target", value)
 
     def jog(self, axis, amount):
-        yaw, pitch = self.state.yaw_target, self.state.pitch_target
-        self.move(yaw + (amount if axis == "yaw" else 0), pitch + (amount if axis == "pitch" else 0))
+        if axis not in ("yaw", "pitch"):
+            raise ValueError("Unknown gimbal axis")
+        self.move(**{axis: getattr(self.state, axis + "_target") + finite(amount)})
 
     def hold(self):
         state = self.snapshot()
-        self.move(state.yaw, state.pitch)
+        self.move(state.yaw if state.yaw_ready else None, state.pitch if state.pitch_ready else None)
 
     def set_percent(self, percent):
         percent = percent_value(percent)
@@ -118,14 +154,17 @@ class Hardware:
         self._wait([self.launch.fireSolenoid()])
 
     def stop_launch(self):
-        if self.launch:
+        if self.launch and "launcher" not in self._missing:
             # Attempt every command even if another command fails.
             errors = []
-            for action in (self.launch.cancelSolenoidFire, self.launch.disarmSolenoid,
-                           lambda: self.launch.setFlywheelRPMTarget(0.0), self.launch.disarmFlywheels):
+            for name, action in (("cancel fire", self.launch.cancelSolenoidFire),
+                                 ("disarm solenoid", self.launch.disarmSolenoid),
+                                 ("zero flywheel target", lambda: self.launch.setFlywheelRPMTarget(0.0)),
+                                 ("disarm flywheels", self.launch.disarmFlywheels)):
                 try:
                     self._wait([action()])
                 except Exception as error:
+                    logger.exception("Launch stop command failed: %s", name)
                     errors.append(str(error))
             if errors:
                 raise RuntimeError("Launch stop was not fully acknowledged: " + "; ".join(errors))
@@ -140,7 +179,8 @@ class Hardware:
 
 class Demo:
     def __init__(self, *args):
-        self.state = State(yaw_ready=True, pitch_ready=True, launch_available=True, launch_ready=True)
+        self.state = State(yaw_ready=True, pitch_ready=True, launch_available=True, launch_ready=True,
+                           yaw_available=True, pitch_available=True)
 
     def snapshot(self):
         for axis in ("yaw", "pitch"):
@@ -148,15 +188,19 @@ class Demo:
             setattr(self.state, axis, current + max(-2.0, min(2.0, target - current)))
         return replace(self.state)
 
-    def move(self, yaw, pitch):
-        self.state.yaw_target, self.state.pitch_target = finite(yaw), finite(pitch)
+    def move(self, yaw=None, pitch=None):
+        if yaw is not None:
+            self.state.yaw_target = finite(yaw)
+        if pitch is not None:
+            self.state.pitch_target = finite(pitch)
 
     def jog(self, axis, amount):
         name = axis + "_target"
         setattr(self.state, name, getattr(self.state, name) + finite(amount))
 
     def hold(self):
-        self.move(self.state.yaw, self.state.pitch)
+        self.move(self.state.yaw if self.state.yaw_ready else None,
+                  self.state.pitch if self.state.pitch_ready else None)
 
     def set_percent(self, value):
         self.state.percent = percent_value(value)
